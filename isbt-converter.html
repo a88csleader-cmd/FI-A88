@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISBT CSV Converter - File & Paste</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f0f17 0%, #0a0a12 100%);
+            color: #e5e7eb;
+            min-height: 100vh;
+        }
+        .card {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(75, 85, 99, 0.3);
+            border-radius: 1.5rem;
+        }
+        .number { font-variant-numeric: tabular-nums; }
+        .number-long { font-size: 2.25rem; letter-spacing: -0.025em; }
+        @media (min-width: 768px) { .number-long { font-size: 2.75rem; } }
+        textarea { resize: vertical; }
+        .tab-active { background: rgba(139, 92, 246, 0.3); border-color: #8b5cf6; color: white; }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
+        <div class="text-center mb-12">
+            <div class="inline-flex items-center gap-3">
+                <div class="w-14 h-14 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg">🏦</div>
+                <h1 class="text-4xl md:text-5xl font-bold tracking-tight text-white">ISBT CSV Converter</h1>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex justify-center mb-6">
+            <button onclick="showTab('file')" class="tab-btn px-8 py-3 rounded-l-2xl font-medium border border-r-0 border-gray-600 bg-gray-800 hover:bg-gray-700" id="tab-file">อัพโหลดไฟล์ .xlsx</button>
+            <button onclick="showTab('paste')" class="tab-btn px-8 py-3 rounded-r-2xl font-medium border border-gray-600 bg-gray-800 hover:bg-gray-700" id="tab-paste">วางข้อความ</button>
+        </div>
+
+        <!-- File Upload Tab -->
+        <div id="tab-content-file" class="tab-content">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-2">
+                    <div id="dropZone" class="card p-10 md:p-16 text-center cursor-pointer transition-all hover:border-violet-500/50 border-2 border-dashed border-gray-700 hover:scale-[1.01]">
+                        <input type="file" id="fileInput" accept=".xlsx" class="hidden">
+                        <div class="mx-auto w-20 h-20 bg-violet-500/10 rounded-3xl flex items-center justify-center mb-6 text-6xl">📤</div>
+                        <p class="text-2xl font-semibold mb-2 text-white">วางไฟล์ Excel ที่นี่</p>
+                        <p class="text-gray-400">หรือคลิกเพื่อเลือกไฟล์</p>
+                    </div>
+                </div>
+                <div class="card p-8 flex flex-col justify-center">
+                    <label class="block text-lg font-medium mb-4 text-violet-300">ยอดคงเหลือล่าสุด</label>
+                    <input type="number" id="lastBalanceFile" placeholder="เช่น 138237.98" class="w-full p-6 bg-gray-900 border border-gray-700 rounded-2xl text-3xl font-bold text-center focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                </div>
+            </div>
+        </div>
+
+        <!-- Paste Text Tab -->
+        <div id="tab-content-paste" class="tab-content hidden">
+            <div class="card p-8">
+                <label class="block text-lg font-medium mb-4 text-violet-300">วางข้อมูลที่ Matched = No ที่นี่</label>
+                <textarea id="pasteArea" rows="10" class="w-full p-6 bg-gray-900 border border-gray-700 rounded-2xl text-gray-200 font-mono text-sm focus:outline-none focus:border-violet-500" placeholder="วางข้อมูลทั้งหมดที่นี่ (คัดลอกจาก Excel หรือระบบ)"></textarea>
+                
+                <div class="mt-6 flex flex-col sm:flex-row gap-4">
+                    <div class="flex-1">
+                        <label class="block text-lg font-medium mb-4 text-violet-300">ยอดคงเหลือล่าสุด</label>
+                        <input type="number" id="lastBalancePaste" placeholder="เช่น 138237.98" class="w-full p-6 bg-gray-900 border border-gray-700 rounded-2xl text-3xl font-bold text-center focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-4 items-end">
+                        <button onclick="clearPasteArea()" class="px-8 py-5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-2xl transition-all active:scale-95">
+                            เคลียร์ข้อความ
+                        </button>
+                        <button onclick="processPastedText()" class="px-10 py-5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold rounded-2xl transition-all active:scale-95">
+                            ประมวลผล & ดาวน์โหลด
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status & Result -->
+        <div id="status" class="text-center min-h-[3rem] mt-8"></div>
+
+        <div id="resultPanel" class="hidden card p-10 mt-8">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+                <div class="text-center">
+                    <div class="text-sm text-gray-400 mb-1">รายการทั้งหมด</div>
+                    <div id="count" class="text-5xl font-bold text-white number">0</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-sm text-gray-400 mb-1">ยอดเข้าใหม่</div>
+                    <div id="newCredit" class="text-5xl font-bold text-emerald-400 number">0.00</div>
+                </div>
+                <div class="text-center border-t sm:border-t-0 sm:border-l border-gray-700 pt-6 sm:pt-0 sm:pl-6">
+                    <div class="text-sm text-gray-400 mb-1">ยอดคงเหลือใหม่</div>
+                    <div id="newBalance" class="text-5xl font-bold text-violet-400 number number-long">0.00</div>
+                </div>
+            </div>
+
+            <div class="mb-10">
+                <h3 class="font-semibold text-lg mb-4 text-gray-200">ตัวอย่างข้อมูล (สีแดง = ซ้ำ)</h3>
+                <div id="preview" class="bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 max-h-96 overflow-y-auto text-sm"></div>
+            </div>
+
+            <button onclick="downloadCSV()" class="w-full py-6 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xl md:text-2xl font-bold rounded-2xl transition-all active:scale-95">
+                ดาวน์โหลด CSV สำหรับ ISBT
+            </button>
+        </div>
+    </div>
+
+<script>
+// Global variables
+let processedRows = [];
+let totalNewCredit = 0;
+let duplicates = [];
+let currentDateStr = new Date().toISOString().slice(0,10);
+let currentMode = 'file';
+
+// Elements
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const lastBalanceFile = document.getElementById('lastBalanceFile');
+const pasteArea = document.getElementById('pasteArea');
+const lastBalancePaste = document.getElementById('lastBalancePaste');
+const statusEl = document.getElementById('status');
+const resultPanel = document.getElementById('resultPanel');
+const countEl = document.getElementById('count');
+const newCreditEl = document.getElementById('newCredit');
+const newBalanceEl = document.getElementById('newBalance');
+const previewEl = document.getElementById('preview');
+
+// Tab switching
+function showTab(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.getElementById(`tab-content-${mode}`).classList.remove('hidden');
+    
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active'));
+    document.getElementById(`tab-${mode}`).classList.add('tab-active');
+}
+
+// Reset UI
+function resetUI() {
+    statusEl.innerHTML = '';
+    resultPanel.classList.add('hidden');
+    processedRows = [];
+    totalNewCredit = 0;
+    duplicates = [];
+}
+
+// Update new balance on input change
+function updateNewBalance() {
+    if (processedRows.length === 0) return;
+    const lb = currentMode === 'file' ? lastBalanceFile : lastBalancePaste;
+    const finalBalance = (parseFloat(lb.value) || 0) + totalNewCredit;
+    newBalanceEl.textContent = finalBalance.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+lastBalanceFile.addEventListener('input', updateNewBalance);
+lastBalancePaste.addEventListener('input', updateNewBalance);
+
+// File upload events
+if (dropZone) {
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => {
+        if (e.target.files.length > 0) processFile(e.target.files[0]);
+    });
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-violet-500/50'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-violet-500/50'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('border-violet-500/50');
+        if (e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]);
+    });
+}
+
+// Clear paste area
+function clearPasteArea() {
+    pasteArea.value = '';
+    lastBalancePaste.value = '';
+    resetUI();
+    statusEl.innerHTML = '<div class="text-gray-400">พร้อมใช้งานใหม่แล้ว</div>';
+}
+
+// Process File (.xlsx)
+async function processFile(file) {
+    resetUI();
+    lastBalancePaste.value = '';
+    statusEl.innerHTML = '<div class="inline-flex items-center gap-3 text-gray-300"><div class="w-6 h-6 border-4 border-violet-400 border-t-transparent rounded-full animate-spin"></div> กำลังอ่านไฟล์...</div>';
+
+    try {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        let sheetName = workbook.SheetNames.find(n => n === "Table" || n.toLowerCase().includes("table")) || workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        const headers = json[0];
+        const matchedIdx = headers.indexOf("Matched");
+        const transferIdx = headers.indexOf("Transfer Date");
+        const amountIdx = headers.indexOf("Amount");
+        const nameIdx = headers.indexOf("Account Name");
+        const accIdx = headers.indexOf("Account Number");
+
+        let filtered = json.slice(1).filter(row => {
+            const val = String(row[matchedIdx] || '').trim();
+            return val === "No" || val === "";
+        });
+
+        if (filtered.length === 0) {
+            statusEl.innerHTML = '<div class="text-red-400">ไม่พบรายการ Matched = "No"</div>';
+            return;
+        }
+
+        processDataRows(filtered, transferIdx, amountIdx, nameIdx, accIdx, false);
+
+    } catch (err) {
+        console.error(err);
+        statusEl.innerHTML = `<div class="text-red-400">เกิดข้อผิดพลาด: ${err.message}</div>`;
+    }
+}
+
+// Process Pasted Text
+function processPastedText() {
+    resetUI();
+    lastBalanceFile.value = '';
+    const text = pasteArea.value.trim();
+    if (!text) {
+        statusEl.innerHTML = '<div class="text-red-400">กรุณาวางข้อมูลก่อน</div>';
+        return;
+    }
+
+    statusEl.innerHTML = '<div class="text-gray-300">กำลังประมวลผล...</div>';
+
+    try {
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        const headerLine = lines[0].split(/\t|\s{2,}/).map(h => h.trim());
+        const dataLines = lines.slice(1);
+
+        const headersLower = headerLine.map(h => h.toLowerCase().replace(/\s+/g,''));
+        const idx = {
+            amount: headersLower.findIndex(h => h.includes('amount')),
+            accNo: headersLower.findIndex(h => h.includes('accountno') || h.includes('เลขบัญชี')),
+            transferDate: headersLower.findIndex(h => h.includes('transferdate') || h.includes('วันที่โอน')),
+            matched: headersLower.findIndex(h => h.includes('matched')),
+            name: headersLower.findIndex(h => h.includes('accountname') || h.includes('ชื่อ'))
+        };
+
+        let filtered = dataLines.filter(line => {
+            const cols = line.split(/\t|\s{2,}/).map(c => c.trim());
+            const matchedVal = cols[idx.matched] || '';
+            return matchedVal === 'No' || matchedVal === '';
+        });
+
+        if (filtered.length === 0) {
+            statusEl.innerHTML = '<div class="text-red-400">ไม่พบรายการ Matched = No</div>';
+            return;
+        }
+
+        processDataRows(filtered, idx.transferDate, idx.amount, idx.name, idx.accNo, true);
+
+    } catch (err) {
+        statusEl.innerHTML = `<div class="text-red-400">เกิดข้อผิดพลาด: ${err.message}</div>`;
+    }
+}
+
+// Common processing
+function processDataRows(rows, dateIdx, amountIdx, nameIdx, accIdx, isText = false) {
+    const seen = new Map();
+    processedRows = [];
+    totalNewCredit = 0;
+    duplicates = [];
+
+    rows.forEach((row, i) => {
+        let amountRaw = isText 
+            ? (row.split(/\t|\s{2,}/)[amountIdx] || '0') 
+            : (row[amountIdx] || 0);
+
+        let amountStr = String(amountRaw).replace(/,/g, '');
+        const amount = parseFloat(amountStr) || 0;
+
+        const dateRaw = isText 
+            ? (row.split(/\t|\s{2,}/)[dateIdx] || '') 
+            : (row[dateIdx] || '');
+
+        const dateFormatted = formatDate(dateRaw);
+
+        const accNo = isText 
+            ? (row.split(/\t|\s{2,}/)[accIdx] || '') 
+            : (row[accIdx] || '');
+
+        const name = isText 
+            ? (row.split(/\t|\s{2,}/)[nameIdx] || '') 
+            : (row[nameIdx] || '');
+
+        const key = `${dateFormatted}|${amount}|${accNo}`;
+
+        const isDup = seen.has(key);
+        if (isDup) duplicates.push(i);
+        seen.set(key, true);
+
+        totalNewCredit += amount;
+
+        processedRows.push({
+            no: processedRows.length + 1,
+            date: dateFormatted,
+            amount,
+            accNo,
+            name,
+            isDuplicate: isDup
+        });
+    });
+
+    finalizeDisplay();
+}
+
+function finalizeDisplay() {
+    countEl.textContent = processedRows.length;
+    newCreditEl.textContent = totalNewCredit.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+    const lb = currentMode === 'file' ? lastBalanceFile : lastBalancePaste;
+    const finalBalance = (parseFloat(lb.value) || 0) + totalNewCredit;
+    newBalanceEl.textContent = finalBalance.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+    renderPreview();
+
+    statusEl.innerHTML = duplicates.length > 0
+        ? `<div class="text-yellow-400">⚠ พบรายการซ้ำ ${duplicates.length} รายการ</div>`
+        : `<div class="text-emerald-400">สำเร็จ — ไม่พบรายการซ้ำ</div>`;
+
+    resultPanel.classList.remove('hidden');
+}
+
+function formatDate(str) {
+    if (!str) return '';
+    const date = new Date(str);
+    if (!isNaN(date.getTime())) {
+        const dd = String(date.getDate()).padStart(2,'0');
+        const mm = String(date.getMonth()+1).padStart(2,'0');
+        const yyyy = date.getFullYear();
+        const hh = String(date.getHours()).padStart(2,'0');
+        const min = String(date.getMinutes()).padStart(2,'0');
+        return `${dd}/${mm}/${yyyy} ${hh}:${min}:00`;
+    }
+    return str.replace(/-Mar-/g,'/03/').replace(/-Feb-/g,'/02/').replace(/-Jan-/g,'/01/').replace(' PM','').replace(' AM','');
+}
+
+function renderPreview() {
+    let html = `
+        <table class="w-full">
+            <thead class="bg-gray-900 sticky top-0">
+                <tr>
+                    <th class="p-3 text-left text-gray-300">ลำดับ</th>
+                    <th class="p-3 text-left text-gray-300">วันที่โอน</th>
+                    <th class="p-3 text-left text-gray-300">จำนวนเงิน</th>
+                    <th class="p-3 text-left text-gray-300">ชื่อบัญชี</th>
+                    <th class="p-3 text-left text-gray-300">เลขบัญชี</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-800">
+    `;
+
+    processedRows.slice(0, 12).forEach(r => {
+        const rowClass = r.isDuplicate ? 'bg-red-900/40 hover:bg-red-900/60' : 'hover:bg-gray-800/50';
+        html += `
+            <tr class="${rowClass}">
+                <td class="p-3">${r.no}</td>
+                <td class="p-3 font-mono">${r.date}</td>
+                <td class="p-3 text-emerald-400">${r.amount.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td class="p-3">${r.name}</td>
+                <td class="p-3 font-mono">${r.accNo}</td>
+            </tr>
+        `;
+    });
+
+    if (processedRows.length > 12) {
+        html += `<tr><td colspan="5" class="p-3 text-center text-gray-500">... และอีก ${processedRows.length - 12} รายการ</td></tr>`;
+    }
+
+    html += '</tbody></table>';
+    previewEl.innerHTML = html;
+}
+
+function downloadCSV() {
+    if (processedRows.length === 0) return;
+
+    const lb = currentMode === 'file' ? lastBalanceFile : lastBalancePaste;
+    const finalBalance = (parseFloat(lb.value) || 0) + totalNewCredit;
+
+    let lines = [];
+    lines.push(`${finalBalance.toFixed(2)},,,,,,`);
+    lines.push(`No,Transaction Date,Description,Debit,Credit,Account Name,Account Number`);
+
+    processedRows.forEach(r => {
+        lines.push(`${r.no},${r.date},รับโอนเข้าบัญชีออมทรัพย์,,${r.amount.toFixed(2)},${r.name},${r.accNo}`);
+    });
+
+    const csv = lines.join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ISBT-471799-${currentDateStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Init tabs
+showTab('file');
+</script>
+</body>
+</html>
