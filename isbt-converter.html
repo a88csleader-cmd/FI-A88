@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', system-ui, sans-serif; }
+        body { font-family: 'Inter', system-ui, sans-serif; scroll-behavior: smooth; }
         .drop-zone { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 3px dashed #a78bfa; }
         .drop-zone.dragover { background-color: rgba(167, 139, 250, 0.1); border-color: #7c3aed; transform: scale(1.02); }
         .preview-table { max-height: 360px; overflow-y: auto; scrollbar-width: thin; }
@@ -27,7 +27,7 @@
             <h1 class="text-5xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent inline-block">
                 ISBT CSV Converter
             </h1>
-            <p class="text-zinc-400 mt-3 text-lg">รองรับเลขบัญชี 10–12 หลัก | กรองข้อมูลซ้ำอัตโนมัติ</p>
+            <p class="text-zinc-400 mt-3 text-lg">อัพโหลด Excel หรือวางข้อความ → สร้างไฟล์ CSV (กรองข้อมูลซ้ำอัตโนมัติ)</p>
         </header>
 
         <!-- Last Balance + Upload -->
@@ -336,6 +336,11 @@ function finishProcess(duplicateCount = 0) {
     </div>`;
 
     showToast(`ประมวลผลสำเร็จ ${processedRows.length} รายการ${duplicateCount ? ` (กรองซ้ำ ${duplicateCount} รายการ)` : ''}`);
+
+    // เลื่อนหน้าจอไปที่ resultPanel ทันทีหลังประมวลผลเสร็จ
+    setTimeout(() => {
+        resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300); // รอให้ UI อัพเดทก่อนเลื่อน
 }
 
 // แสดงรายการที่ถูกกรองออก (เฉพาะซ้ำ)
