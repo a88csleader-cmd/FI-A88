@@ -3,158 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ISBT CSV Converter - Multi Account</title>
+    <title>ISBT CSV Converter</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', system-ui, sans-serif; scroll-behavior: smooth; }
-        .drop-zone { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 3px dashed #a78bfa; }
-        .drop-zone.dragover { background-color: rgba(167, 139, 250, 0.1); border-color: #7c3aed; transform: scale(1.02); }
-        .preview-table { max-height: 360px; overflow-y: auto; scrollbar-width: thin; }
+        body { font-family: 'Inter', system-ui, sans-serif; scroll-behavior: smooth; background: linear-gradient(to bottom right, #0f172a, #1e293b); }
+        .drop-zone { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 3px dashed #a78bfa; background: rgba(139, 92, 246, 0.05); }
+        .drop-zone.dragover { background: rgba(139, 92, 246, 0.15); border-color: #7c3aed; transform: scale(1.02); }
+        .preview-table { max-height: 500px; overflow-y: auto; scrollbar-width: thin; }
         .preview-table::-webkit-scrollbar { width: 6px; }
-        .preview-table::-webkit-scrollbar-thumb { background: #6b7280; border-radius: 3px; }
+        .preview-table::-webkit-scrollbar-thumb { background: #64748b; border-radius: 3px; }
         .toast { position: fixed; bottom: 32px; right: 32px; background: #10b981; color: white; padding: 14px 24px; border-radius: 9999px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); z-index: 9999; animation: fadeInOut 3s forwards; }
         @keyframes fadeInOut { 0% { opacity:0; transform:translateY(20px); } 10% { opacity:1; transform:translateY(0); } 90% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(20px); } }
         .number-display { font-feature-settings: 'tnum'; }
-        .filtered-section { display: none; }
-        .filtered-section.show { display: block; }
+        .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+        .pagination button { padding: 6px 12px; border-radius: 6px; background: #374151; color: white; border: none; cursor: pointer; transition: background 0.2s; }
+        .pagination button:hover { background: #4b5563; }
+        .pagination button.active { background: #8b5cf6; }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+        tr:hover { background: rgba(139, 92, 246, 0.08); cursor: pointer; }
+        input[type="checkbox"] { accent-color: #8b5cf6; }
+        tr.selected { background: rgba(139, 92, 246, 0.2) !important; }
+        .version-tag { font-size: 0.75rem; color: #64748b; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 text-white min-h-screen">
+<body class="text-white min-h-screen">
     <div class="max-w-6xl mx-auto px-6 py-10">
         <header class="text-center mb-12">
             <h1 class="text-5xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent inline-block">
                 ISBT CSV Converter
             </h1>
-            <p class="text-zinc-400 mt-3 text-lg">รองรับหลายเลขบัญชี ISBT (ชื่อไฟล์ตามเลขบัญชีจริง)</p>
+            <p class="text-zinc-400 mt-3 text-lg">เลือกแถวที่ต้องการก่อนดาวน์โหลด • ยอดเงินอัพเดทตามที่เลือก</p>
+            <div class="version-tag mt-2">**เวอร์ชันปรับปรุงล่าสุด – 20 มี.ค. 2026**</div>
         </header>
 
-        <!-- Last Balance + Upload -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-            <div class="lg:col-span-2">
-                <div id="dropZone" class="drop-zone bg-zinc-900/70 rounded-3xl p-12 text-center cursor-pointer shadow-xl border-3 border-dashed">
-                    <input type="file" id="fileInput" accept=".xlsx" class="hidden">
-                    <div class="mx-auto w-24 h-24 bg-violet-500/10 rounded-full flex items-center justify-center mb-6 text-6xl shadow-inner">📤</div>
-                    <p class="text-2xl font-semibold mb-3">ลากไฟล์ Excel วางที่นี่ หรือคลิกเพื่อเลือก</p>
-                    <p class="text-zinc-400">ไฟล์จากระบบ ALPHA88 (Sheet: Table)</p>
-                </div>
+        <!-- ยอดคงเหลือ + วางข้อความ -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+            <div class="bg-zinc-800/80 backdrop-blur-sm rounded-3xl p-8 border border-zinc-700 shadow-xl">
+                <label class="block text-lg font-semibold mb-4 text-violet-300">ยอดคงเหลือล่าสุด</label>
+                <input type="number" id="lastBalance" placeholder="เช่น 138237.98" step="0.01"
+                       class="w-full p-5 bg-zinc-900 border border-zinc-700 rounded-2xl text-3xl font-bold text-center focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30 transition number-display">
+                <p class="text-xs text-zinc-500 mt-4 text-center">ยอดนี้จะบวกกับยอดที่เลือก</p>
             </div>
 
             <div class="bg-zinc-800/80 backdrop-blur-sm rounded-3xl p-8 border border-zinc-700 shadow-xl">
-                <label class="block text-lg font-semibold mb-4 text-violet-300">ยอดคงเหลือล่าสุด (Last Balance)</label>
-                <input type="number" id="lastBalance" placeholder="เช่น 138237.98" step="0.01"
-                       class="w-full p-6 bg-zinc-900 border border-zinc-700 rounded-2xl text-4xl font-bold text-center focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30 transition number-display">
-                <p class="text-xs text-zinc-500 mt-4 text-center">ยอดนี้จะถูกนำไปบวกกับยอดฝากใหม่ทั้งหมด</p>
-            </div>
-        </div>
-
-        <!-- Paste Text -->
-        <div class="bg-zinc-800/80 backdrop-blur-sm rounded-3xl p-8 border border-zinc-700 shadow-xl mb-12">
-            <div class="flex items-center justify-between mb-4">
-                <label class="block text-lg font-semibold text-violet-300">วางข้อความ</label>
-                <button onclick="clearPasteArea()" class="text-sm px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg transition">
-                    เคลียร์ข้อความ
+                <div class="flex items-center justify-between mb-4">
+                    <label class="block text-lg font-semibold text-violet-300">วางข้อความ</label>
+                    <button id="btnClear" class="text-sm px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg transition">
+                        เคลียร์ข้อความ
+                    </button>
+                </div>
+                <textarea id="pasteText" rows="10" placeholder="วางข้อความที่นี่..." class="w-full p-5 bg-zinc-900 border border-zinc-700 rounded-2xl font-mono text-sm text-zinc-200 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30 resize-y transition"></textarea>
+                <button id="btnProcess" class="mt-5 w-full py-6 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xl rounded-2xl transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
+                    ประมวลผลข้อความที่วาง
                 </button>
             </div>
-            <textarea id="pasteText" rows="8" placeholder="วางข้อความที่นี่..." class="w-full p-5 bg-zinc-900 border border-zinc-700 rounded-2xl font-mono text-sm text-zinc-200 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30 resize-y transition"></textarea>
-            <button onclick="processPastedText()" class="mt-5 w-full py-6 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xl rounded-2xl transition shadow-lg">
-                ประมวลผลข้อความที่วาง
-            </button>
         </div>
 
         <!-- Status -->
         <div id="status" class="text-center min-h-[64px] mb-10"></div>
 
-        <!-- Result Panel -->
+        <!-- Result -->
         <div id="resultPanel" class="hidden bg-zinc-800/90 backdrop-blur-md rounded-3xl shadow-2xl p-10 border border-zinc-700">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
                 <div class="bg-zinc-900/80 rounded-2xl p-8 text-center border border-zinc-700">
-                    <div class="text-emerald-400 text-sm font-medium mb-2">จำนวนรายการ</div>
+                    <div class="text-emerald-400 text-sm font-medium mb-2">จำนวนรายการที่เลือก</div>
                     <div id="count" class="text-6xl font-bold">0</div>
                 </div>
                 <div class="bg-zinc-900/80 rounded-2xl p-8 text-center border border-zinc-700">
-                    <div class="text-amber-400 text-sm font-medium mb-2">ยอดเงินเข้าใหม่</div>
+                    <div class="text-amber-400 text-sm font-medium mb-2">ยอดเงินเข้าใหม่ (ที่เลือก)</div>
                     <div id="newCredit" class="text-5xl md:text-6xl font-bold number-display">0.00</div>
                 </div>
                 <div class="bg-zinc-900/80 rounded-2xl p-8 text-center border-2 border-violet-600">
-                    <div class="text-violet-300 text-sm font-medium mb-2">ยอดคงเหลือใหม่</div>
+                    <div class="text-violet-300 text-sm font-medium mb-2">ยอดคงเหลือใหม่ (ที่เลือก)</div>
                     <div id="newBalance" class="text-5xl md:text-6xl font-bold text-violet-400 number-display">0.00</div>
                 </div>
             </div>
 
-            <!-- Filtered Out -->
-            <div id="filteredSection" class="filtered-section mb-10 bg-zinc-900/70 rounded-2xl p-6 border border-zinc-700">
-                <h3 class="text-lg font-semibold mb-4 text-rose-400">รายการที่ถูกกรองออก (ซ้ำ)</h3>
-                <div id="filteredList" class="text-sm text-zinc-300 max-h-48 overflow-y-auto font-mono whitespace-pre-wrap"></div>
-            </div>
-
-            <!-- Preview -->
+            <!-- ตารางข้อมูล -->
             <div class="mb-10">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-semibold text-xl">ตัวอย่างรายการที่ผ่านการกรอง (8 รายการแรก)</h3>
-                    <span onclick="toggleFullPreview()" class="text-violet-400 hover:text-violet-300 cursor-pointer text-sm flex items-center gap-1">
-                        ดูทั้งหมด <span class="text-xs">↓</span>
-                    </span>
+                    <h3 class="font-semibold text-xl">รายการทั้งหมด</h3>
+                    <div class="flex gap-4">
+                        <button id="btnSelectAll" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm transition">
+                            เลือกทั้งหมด
+                        </button>
+                        <button id="btnUnselectAll" class="px-4 py-2 bg-rose-700 hover:bg-rose-600 rounded-lg text-sm transition">
+                            ยกเลิกทั้งหมด
+                        </button>
+                    </div>
                 </div>
+
                 <div id="preview" class="preview-table bg-zinc-900/80 rounded-2xl overflow-hidden border border-zinc-700"></div>
+
+                <div id="pagination" class="pagination mt-6"></div>
             </div>
 
-            <button onclick="downloadCSV()" 
-                    class="w-full py-7 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-2xl font-bold rounded-3xl transition-all shadow-xl">
-                📥 ดาวน์โหลด CSV-ISBT
+            <button id="btnDownload" disabled class="w-full py-7 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-2xl font-bold rounded-3xl transition-all shadow-xl disabled:opacity-60 disabled:cursor-not-allowed">
+                📥 ดาวน์โหลด CSV (เฉพาะที่เลือก)
             </button>
+            <div class="version-tag text-center text-zinc-500 text-sm mt-4">
+                **เวอร์ชันปรับปรุงล่าสุด – 20 มี.ค. 2026**
+            </div>
         </div>
     </div>
 
 <script>
 // Global variables
-let processedRows = [];
-let filteredOutRows = [];
-let totalNewCredit = 0;
+let allRows = [];
+let selectedRows = [];
+let currentPage = 1;
+const rowsPerPage = 100;
 let currentDateStr = '';
-let accountNumber = 'UNKNOWN'; // เก็บเลขบัญชี ISBT ที่พบ
+let renderTimeout;
 
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const lastBalanceEl = document.getElementById('lastBalance');
+// Elements
 const pasteTextEl = document.getElementById('pasteText');
+const lastBalanceEl = document.getElementById('lastBalance');
 const statusEl = document.getElementById('status');
 const resultPanel = document.getElementById('resultPanel');
 const countEl = document.getElementById('count');
 const newCreditEl = document.getElementById('newCredit');
 const newBalanceEl = document.getElementById('newBalance');
 const previewEl = document.getElementById('preview');
-const filteredSection = document.getElementById('filteredSection');
-const filteredListEl = document.getElementById('filteredList');
+const paginationEl = document.getElementById('pagination');
+const btnProcess = document.getElementById('btnProcess');
+const btnClear = document.getElementById('btnClear');
+const btnSelectAll = document.getElementById('btnSelectAll');
+const btnUnselectAll = document.getElementById('btnUnselectAll');
+const btnDownload = document.getElementById('btnDownload');
 
-// Drag & Drop
-dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => e.target.files[0] && processExcel(e.target.files[0]));
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files[0]) processExcel(e.dataTransfer.files[0]);
-});
+// Event listeners
+btnClear.addEventListener('click', clearPasteArea);
+btnProcess.addEventListener('click', processPastedText);
+btnSelectAll.addEventListener('click', () => toggleAll(true));
+btnUnselectAll.addEventListener('click', () => toggleAll(false));
+btnDownload.addEventListener('click', downloadCSV);
 
-// Clear on new upload
-fileInput.addEventListener('change', () => {
-    if (fileInput.files[0]) {
-        pasteTextEl.value = '';
-        lastBalanceEl.value = '';
-        totalNewCredit = 0;
-        processedRows = [];
-        filteredOutRows = [];
-        accountNumber = 'UNKNOWN';
-        resultPanel.classList.add('hidden');
-        statusEl.innerHTML = '';
-        filteredSection.classList.remove('show');
-        filteredListEl.textContent = 'ยังไม่มีรายการที่ถูกกรอง';
+// Ctrl+Enter to process
+pasteTextEl.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        processPastedText();
     }
 });
 
+// Clear paste area
 function clearPasteArea() {
     pasteTextEl.value = '';
     lastBalanceEl.value = '';
@@ -162,158 +158,125 @@ function clearPasteArea() {
     showToast('เคลียร์ข้อความและยอดคงเหลือเรียบร้อย');
 }
 
-lastBalanceEl.addEventListener('input', updateNewBalance);
-
-function updateNewBalance() {
-    if (totalNewCredit > 0) {
-        const final = (parseFloat(lastBalanceEl.value) || 0) + totalNewCredit;
-        newBalanceEl.textContent = final.toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2});
-    }
-}
-
-// Process Pasted Text (ปรับให้ตรวจจับ ISBT-XXXXXX)
+// Process Pasted Text
 function processPastedText() {
     const text = pasteTextEl.value.trim();
     if (!text) return statusEl.innerHTML = `<div class="text-red-400 text-xl">กรุณาวางข้อความก่อน</div>`;
+
+    btnProcess.disabled = true;
+    btnProcess.textContent = 'กำลังประมวลผล...';
 
     statusEl.innerHTML = `<div class="inline-flex items-center gap-3 bg-zinc-800 px-8 py-4 rounded-3xl"><div class="w-6 h-6 border-4 border-violet-400 border-t-transparent rounded-full animate-spin"></div> กำลังประมวลผล...</div>`;
 
     const lines = text.split('\n').map(l => l.trim()).filter(l => l && l.includes('ISBT-') && l.includes('Successful'));
 
     const seen = new Set();
-    processedRows = [];
-    filteredOutRows = [];
-    totalNewCredit = 0;
+    allRows = [];
     let duplicateCount = 0;
-
-    // ตรวจจับเลขบัญชี ISBT จากบรรทัดแรกที่มี
-    let foundAccount = text.match(/ISBT-\d{6}/);
-    accountNumber = foundAccount ? foundAccount[0] : 'UNKNOWN';
+    let totalNewCreditTemp = 0;
 
     lines.forEach(line => {
-        const parts = line.split(/\s+/).filter(p => p);
-        if (parts.length < 12) return;
+        // Robust regex parsing
+        const match = line.match(/(\S+)\s+(VIP[A-Z]+)\s+(\d{13})\s+(ISBT-\d+)\s+(THB)\s+([\d,]+\.\d{2})\s+(mBanking|cBanking|ATM)\s+([A-Z]{3,5})\s+(.+?)\s+(\d{10,12})\s+(\d{2}-[A-Za-z]{3}-\d{4}\s+\d{2}:\d{2}:\d{2}\s+(?:AM|PM))/);
+        if (!match) return;
 
-        let idx = 0;
-        idx += 3; // ข้าม Member Code, Risk, Txn Id
+        const [, memberCode, risk, txnId, acc, currency, amountStr, channel, bank, name, accountNo, transferDateRaw] = match;
 
-        const acc = parts[idx];
-        if (!acc || !acc.startsWith('ISBT-')) return;
-        idx++; // ข้าม ISBT-XXXXXX
-
-        if (parts[idx++] !== 'THB') return;
-
-        const amountStr = parts[idx++].replace(/,/g,'');
-        const amount = parseFloat(amountStr) || 0;
-
-        if (!['mBanking','cBanking','ATM'].includes(parts[idx])) return;
-        const channel = parts[idx++];
-
-        const bank = parts[idx++] || '';
-
-        let nameParts = [];
-        while (idx < parts.length && !/^\d{10,12}$/.test(parts[idx])) {
-            nameParts.push(parts[idx++]);
-        }
-        const accountName = nameParts.join(' ').trim();
-
-        const accountNo = parts[idx++] || '';
-
-        const transferDateRaw = `${parts[idx++] || ''} ${parts[idx++] || ''} ${parts[idx++] || ''} ${parts[idx++] || ''}`.trim();
-
+        const amount = parseFloat(amountStr.replace(/,/g,'')) || 0;
         const key = `${accountNo}|${amount}|${transferDateRaw}`;
 
         if (seen.has(key)) {
             duplicateCount++;
-            filteredOutRows.push({
-                reason: 'ซ้ำ (accountNo + amount + transferDate)',
-                data: `${accountNo} | ${amount.toLocaleString('th-TH')} | ${transferDateRaw}`
-            });
             return;
         }
         seen.add(key);
 
-        totalNewCredit += amount;
-        processedRows.push({
-            no: processedRows.length + 1,
+        totalNewCreditTemp += amount;
+        allRows.push({
+            no: allRows.length + 1,
             amount,
-            accountName,
+            accountName: name.trim(),
             accountNo,
-            transferDate: formatDate(transferDateRaw)
+            transferDate: formatDate(transferDateRaw),
+            selected: true
         });
     });
 
-    if (processedRows.length === 0) {
+    if (allRows.length === 0) {
         statusEl.innerHTML = `<div class="text-red-400 text-xl">❌ ไม่สามารถแยกข้อมูลได้ กรุณาตรวจสอบรูปแบบ</div>`;
+        btnProcess.disabled = false;
+        btnProcess.textContent = 'ประมวลผลข้อความที่วาง';
         return;
     }
 
-    finishProcess(duplicateCount);
+    selectedRows = [...allRows];
+
+    finishProcess(duplicateCount, totalNewCreditTemp);
+
+    btnProcess.disabled = false;
+    btnProcess.textContent = 'ประมวลผลข้อความที่วาง';
 }
 
 // Common finish
-function finishProcess(duplicateCount = 0) {
+function finishProcess(duplicateCount = 0, totalCredit = 0) {
     currentDateStr = new Date().toISOString().slice(0,10);
-    countEl.textContent = processedRows.length;
-    newCreditEl.textContent = totalNewCredit.toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2});
-    updateNewBalance();
-
-    renderPreview();
-
-    if (duplicateCount > 0) {
-        renderFilteredList();
-        filteredSection.classList.add('show');
-    } else {
-        filteredSection.classList.remove('show');
-    }
+    updateSummary();
+    renderTable(currentPage);
+    renderPagination();
 
     resultPanel.classList.remove('hidden');
 
-    let msg = `✅ เสร็จสิ้น — พบ ${processedRows.length} รายการ`;
-    if (duplicateCount > 0) {
-        msg += ` (กรองซ้ำออกไป ${duplicateCount} รายการ)`;
-    }
+    let msg = `✅ เสร็จสิ้น — พบ ${allRows.length} รายการ`;
+    if (duplicateCount > 0) msg += ` (กรองซ้ำ ${duplicateCount} รายการ)`;
     statusEl.innerHTML = `<div class="bg-emerald-900/60 border border-emerald-500 text-emerald-300 px-10 py-5 rounded-3xl inline-flex items-center gap-3 text-lg">
         ${msg}
     </div>`;
 
-    showToast(`ประมวลผลสำเร็จ ${processedRows.length} รายการ${duplicateCount ? ` (กรองซ้ำ ${duplicateCount} รายการ)` : ''}`);
+    showToast(`ประมวลผลสำเร็จ ${allRows.length} รายการ`);
 
     setTimeout(() => {
         resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 300);
 }
 
-// Render Filtered List
-function renderFilteredList() {
-    if (filteredOutRows.length === 0) {
-        filteredListEl.innerHTML = '<div class="text-zinc-500 italic">ไม่มีรายการซ้ำ</div>';
-        return;
-    }
+// Update summary
+function updateSummary() {
+    selectedRows = allRows.filter(r => r.selected);
+    const selectedCount = selectedRows.length;
+    const selectedTotal = selectedRows.reduce((sum, r) => sum + r.amount, 0);
 
-    let html = '';
-    filteredOutRows.forEach((item, i) => {
-        html += `<div class="mb-3 pb-2 border-b border-zinc-700">
-            <span class="text-rose-400 font-medium">[${i+1}] ${item.reason}</span><br>
-            <span class="text-zinc-400 text-xs">${item.data}</span>
-        </div>`;
-    });
-    filteredListEl.innerHTML = html;
+    countEl.textContent = selectedCount;
+    newCreditEl.textContent = selectedTotal.toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+    const finalBalance = (parseFloat(lastBalanceEl.value) || 0) + selectedTotal;
+    newBalanceEl.textContent = finalBalance.toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+    // Enable/disable download button
+    btnDownload.disabled = selectedCount === 0;
 }
 
-// Preview
-function renderPreview() {
+// Render table with pagination
+function renderTable(page = 1) {
+    currentPage = page;
+    const start = (page - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+    const pageRows = allRows.slice(start, end);
+
     let html = `<table class="w-full text-sm"><thead class="bg-zinc-950 sticky top-0"><tr>
-        <th class="p-4 text-left font-medium text-violet-300">ลำดับ</th>
+        <th class="p-4 text-left">
+            <input type="checkbox" id="checkAll" onchange="toggleAll(this.checked)" ${allRows.every(r => r.selected) ? 'checked' : ''}>
+        </th>
         <th class="p-4 text-left font-medium text-violet-300">วันที่โอน</th>
         <th class="p-4 text-left font-medium text-violet-300">จำนวนเงิน</th>
         <th class="p-4 text-left font-medium text-violet-300">ชื่อบัญชี</th>
         <th class="p-4 text-left font-medium text-violet-300">เลขบัญชี</th>
     </tr></thead><tbody class="divide-y divide-zinc-700">`;
 
-    processedRows.slice(0,8).forEach(r => {
-        html += `<tr class="hover:bg-zinc-800/50">
-            <td class="p-4">${r.no}</td>
+    pageRows.forEach(r => {
+        html += `<tr class="hover:bg-zinc-800/50 cursor-pointer ${r.selected ? 'selected' : ''}" onclick="toggleRow(${r.no}, event)">
+            <td class="p-4">
+                <input type="checkbox" class="row-checkbox" data-id="${r.no}" ${r.selected ? 'checked' : ''} onchange="toggleCheckbox(${r.no}, this.checked, event); event.stopPropagation();">
+            </td>
             <td class="p-4 font-mono">${r.transferDate || '-'}</td>
             <td class="p-4 text-emerald-400 font-medium">${r.amount.toLocaleString('th-TH')}</td>
             <td class="p-4">${r.accountName}</td>
@@ -323,78 +286,114 @@ function renderPreview() {
 
     html += `</tbody></table>`;
     previewEl.innerHTML = html;
+
+    // Add event listeners to checkboxes
+    document.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+            e.stopPropagation();
+            const id = parseInt(cb.dataset.id);
+            const row = allRows.find(r => r.no === id);
+            if (row) row.selected = cb.checked;
+            updateSummary();
+        });
+    });
 }
 
-function toggleFullPreview() {
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4';
-    modal.innerHTML = `
-        <div class="bg-zinc-900 rounded-3xl w-full max-w-6xl max-h-[92vh] overflow-hidden" onclick="event.stopPropagation()">
-            <div class="p-6 border-b border-zinc-700 flex justify-between items-center">
-                <h3 class="text-2xl font-bold">รายการทั้งหมด (${processedRows.length})</h3>
-                <button onclick="this.closest('.fixed').remove()" class="text-4xl text-zinc-400 hover:text-white">×</button>
-            </div>
-            <div class="p-6 overflow-auto max-h-[80vh]">${previewEl.innerHTML}</div>
-        </div>`;
-    modal.onclick = () => modal.remove();
-    document.body.appendChild(modal);
+// Toggle row on row click
+function toggleRow(id, event) {
+    if (event.target.type === 'checkbox') return;
+    const row = allRows.find(r => r.no === id);
+    if (row) {
+        row.selected = !row.selected;
+        updateSummary();
+        renderTable(currentPage);
+    }
 }
 
-// Download CSV - ชื่อไฟล์ตามเลขบัญชีจริง
+// Toggle single checkbox
+function toggleCheckbox(id, checked, event) {
+    event.stopPropagation();
+    const row = allRows.find(r => r.no === id);
+    if (row) {
+        row.selected = checked;
+        updateSummary();
+    }
+}
+
+// Toggle all
+function toggleAll(checked) {
+    allRows.forEach(r => r.selected = checked);
+    renderTable(currentPage);
+    updateSummary();
+}
+
+// Render Pagination
+function renderPagination() {
+    const totalPages = Math.ceil(allRows.length / rowsPerPage);
+    let html = '';
+
+    if (totalPages <= 1) {
+        paginationEl.innerHTML = '';
+        return;
+    }
+
+    html += `<button ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage-1})">ก่อนหน้า</button>`;
+
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage-2 && i <= currentPage+2)) {
+            html += `<button class="${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+        } else if (i === currentPage-3 || i === currentPage+3) {
+            html += `<button disabled>...</button>`;
+        }
+    }
+
+    html += `<button ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage+1})">ถัดไป</button>`;
+
+    paginationEl.innerHTML = html;
+}
+
+function changePage(page) {
+    if (page < 1 || page > Math.ceil(allRows.length / rowsPerPage)) return;
+    currentPage = page;
+    renderTable(page);
+}
+
+// Download CSV
 function downloadCSV() {
-    if (!processedRows.length) return;
+    const rowsToExport = allRows.filter(r => r.selected);
+    if (!rowsToExport.length) return showToast('ไม่มีรายการที่เลือก');
 
-    const finalBalance = (parseFloat(lastBalanceEl.value) || 0) + totalNewCredit;
+    const finalBalance = (parseFloat(lastBalanceEl.value) || 0) + 
+                         rowsToExport.reduce((sum, r) => sum + r.amount, 0);
 
     let lines = [];
+    let newNo = 1;
     lines.push(`${finalBalance.toFixed(2)},,,,,,`);
     lines.push(`No,Transaction Date,Description,Debit,Credit,Account Name,Account Number`);
 
-    processedRows.forEach(r => {
-        lines.push(`${r.no},${r.transferDate},รับโอนเข้าบัญชีออมทรัพย์,,${r.amount},${r.accountName},${r.accountNo}`);
+    rowsToExport.forEach(r => {
+        lines.push(`${newNo++},${csvEscape(r.transferDate)},รับโอนเข้าบัญชีออมทรัพย์,,${r.amount},${csvEscape(r.accountName)},${r.accountNo}`);
     });
 
     const csv = lines.join('\r\n');
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
 
-    const filename = `${accountNumber}-${currentDateStr}.csv`;
-
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
+    a.href = url;
+    a.download = `ISBT-Selected-${currentDateStr}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
+    a.remove();
 }
 
-// Date format - DD/MM/YYYY HH:MM:SS (24-hour)
-function formatDate(str) {
-    if (!str) return '';
-
-    const match = str.match(/(\d{2})-([A-Za-z]{3})-(\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s+(AM|PM)/);
-    if (match) {
-        let [_, dd, mon, yyyy, time, ampm] = match;
-        let [hh, mm, ss] = time.split(':').map(Number);
-
-        if (ampm === 'PM' && hh < 12) hh += 12;
-        if (ampm === 'AM' && hh === 12) hh = 0;
-
-        const monthMap = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
-        const mmNum = monthMap[mon] || '01';
-
-        return `${dd}/${mmNum}/${yyyy} ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+// CSV escape
+function csvEscape(str) {
+    str = String(str || '');
+    if (/[",\n]/.test(str)) {
+        return `"${str.replace(/"/g, '""')}"`;
     }
-
-    const d = new Date(str);
-    if (!isNaN(d)) {
-        const dd = String(d.getDate()).padStart(2, '0');
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const yyyy = d.getFullYear();
-        const hh = String(d.getHours()).padStart(2, '0');
-        const min = String(d.getMinutes()).padStart(2, '0');
-        const sec = String(d.getSeconds()).padStart(2, '0');
-        return `${dd}/${mm}/${yyyy} ${hh}:${min}:${sec}`;
-    }
-
     return str;
 }
 
@@ -405,6 +404,32 @@ function showToast(msg) {
     t.textContent = msg;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 3000);
+}
+
+// Date format
+function formatDate(str) {
+    if (!str) return '';
+    const match = str.match(/(\d{2})-([A-Za-z]{3})-(\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s+(AM|PM)/);
+    if (match) {
+        let [_, dd, mon, yyyy, time, ampm] = match;
+        let [hh, mm, ss] = time.split(':').map(Number);
+        if (ampm === 'PM' && hh < 12) hh += 12;
+        if (ampm === 'AM' && hh === 12) hh = 0;
+        const monthMap = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
+        const mmNum = monthMap[mon] || '01';
+        return `${dd}/${mmNum}/${yyyy} ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+    }
+    const d = new Date(str);
+    if (!isNaN(d)) {
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        const sec = String(d.getSeconds()).padStart(2, '0');
+        return `${dd}/${mm}/${yyyy} ${hh}:${min}:${sec}`;
+    }
+    return str;
 }
 </script>
 </body>
