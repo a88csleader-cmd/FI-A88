@@ -6,28 +6,32 @@
     <title>ISBT CSV Converter</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', system-ui, sans-serif; scroll-behavior: smooth; background: linear-gradient(to bottom right, #0f172a, #1e293b); }
-        .drop-zone { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 3px dashed #a78bfa; background: rgba(139, 92, 246, 0.05); }
-        .drop-zone.dragover { background: rgba(139, 92, 246, 0.15); border-color: #7c3aed; transform: scale(1.02); }
-        .preview-table { max-height: 500px; overflow-y: auto; scrollbar-width: thin; }
-        .preview-table::-webkit-scrollbar { width: 6px; }
-        .preview-table::-webkit-scrollbar-thumb { background: #64748b; border-radius: 3px; }
-        .toast { position: fixed; bottom: 32px; right: 32px; background: #10b981; color: white; padding: 14px 24px; border-radius: 9999px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); z-index: 9999; animation: fadeInOut 3s forwards; }
-        @keyframes fadeInOut { 0% { opacity:0; transform:translateY(20px); } 10% { opacity:1; transform:translateY(0); } 90% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(20px); } }
-        .number-display { font-feature-settings: 'tnum'; }
-        .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
-        .pagination button { padding: 6px 12px; border-radius: 6px; background: #374151; color: white; border: none; cursor: pointer; transition: background 0.2s; }
-        .pagination button:hover { background: #4b5563; }
-        .pagination button.active { background: #8b5cf6; }
-        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
-        tr:hover { background: rgba(139, 92, 246, 0.08); cursor: pointer; }
-        input[type="checkbox"] { accent-color: #8b5cf6; }
-        tr.selected { background: rgba(139, 92, 246, 0.2) !important; }
-        .version-tag { font-size: 0.75rem; color: #64748b; }
-        button:disabled { opacity: 0.6; cursor: not-allowed; }
-    </style>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; scroll-behavior: smooth; background: linear-gradient(to bottom right, #0f172a, #1e293b); }
+    .drop-zone { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 3px dashed #a78bfa; background: rgba(139, 92, 246, 0.05); }
+    .drop-zone.dragover { background: rgba(139, 92, 246, 0.15); border-color: #7c3aed; transform: scale(1.02); }
+    .preview-table { max-height: 70vh; min-height: 200px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-gutter: stable; background: #111827; border-radius: 1rem; border: 1px solid #374151; }
+    .preview-table::-webkit-scrollbar { width: 8px; }
+    .preview-table::-webkit-scrollbar-thumb { background: #64748b; border-radius: 4px; }
+    .preview-table table { table-layout: fixed; width: 100%; }
+    .preview-table thead th { position: sticky; top: 0; background: #111827; z-index: 10; }
+    .preview-table td, .preview-table th { padding: 1rem; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .preview-table th:first-child, .preview-table td:first-child { width: 50px; text-align: center; padding: 0.75rem; } /* Checkbox column เล็กลง */
+    .toast { position: fixed; bottom: 32px; right: 32px; background: #10b981; color: white; padding: 14px 24px; border-radius: 9999px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); z-index: 9999; animation: fadeInOut 3s forwards; }
+    @keyframes fadeInOut { 0% { opacity:0; transform:translateY(20px); } 10% { opacity:1; transform:translateY(0); } 90% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(20px); } }
+    .number-display { font-feature-settings: 'tnum'; }
+    .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+    .pagination button { padding: 6px 12px; border-radius: 6px; background: #374151; color: white; border: none; cursor: pointer; transition: background 0.2s; }
+    .pagination button:hover { background: #4b5563; }
+    .pagination button.active { background: #8b5cf6; }
+    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+    tr:hover { background: rgba(139, 92, 246, 0.08); cursor: pointer; }
+    input[type="checkbox"] { accent-color: #8b5cf6; }
+    tr.selected { background: rgba(139, 92, 246, 0.2) !important; }
+    .version-tag { font-size: 0.75rem; color: #64748b; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+</style>
 </head>
 <body class="text-white min-h-screen">
     <div class="max-w-6xl mx-auto px-6 py-10">
@@ -83,23 +87,23 @@
             </div>
 
             <!-- ตารางข้อมูล -->
-            <div class="mb-10">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-semibold text-xl">รายการทั้งหมด</h3>
-                    <div class="flex gap-4">
-                        <button id="btnSelectAll" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm transition">
-                            เลือกทั้งหมด
-                        </button>
-                        <button id="btnUnselectAll" class="px-4 py-2 bg-rose-700 hover:bg-rose-600 rounded-lg text-sm transition">
-                            ยกเลิกทั้งหมด
-                        </button>
-                    </div>
-                </div>
+<div class="mb-10">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-xl">รายการทั้งหมด (เลือกได้)</h3>
+        <div class="flex gap-4">
+            <button id="btnSelectAll" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm transition">
+                เลือกทั้งหมด
+            </button>
+            <button id="btnUnselectAll" class="px-4 py-2 bg-rose-700 hover:bg-rose-600 rounded-lg text-sm transition">
+                ยกเลิกทั้งหมด
+            </button>
+        </div>
+    </div>
 
-                <div id="preview" class="preview-table bg-zinc-900/80 rounded-2xl overflow-hidden border border-zinc-700"></div>
+    <div id="preview" class="preview-table"></div>
 
-                <div id="pagination" class="pagination mt-6"></div>
-            </div>
+    <div id="pagination" class="pagination mt-6"></div>
+</div>
 
             <button id="btnDownload" disabled class="w-full py-7 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-2xl font-bold rounded-3xl transition-all shadow-xl disabled:opacity-60 disabled:cursor-not-allowed">
                 📥 ดาวน์โหลด CSV (เฉพาะที่เลือก)
@@ -117,8 +121,7 @@ let selectedRows = [];
 let currentPage = 1;
 const rowsPerPage = 100;
 let currentDateStr = '';
-let accountNumber = 'UNKNOWN'; // เก็บเลขบัญชี ISBT ที่พบ
-let renderTimeout;
+let accountNumber = 'UNKNOWN';
 
 // Elements
 const pasteTextEl = document.getElementById('pasteText');
@@ -159,7 +162,7 @@ function clearPasteArea() {
     showToast('เคลียร์ข้อความและยอดคงเหลือเรียบร้อย');
 }
 
-// Process Pasted Text
+// Process Pasted Text (ปรับ regex จับ ISBT ให้แม่นยำขึ้น)
 function processPastedText() {
     const text = pasteTextEl.value.trim();
     if (!text) return statusEl.innerHTML = `<div class="text-red-400 text-xl">กรุณาวางข้อความก่อน</div>`;
@@ -176,9 +179,14 @@ function processPastedText() {
     let duplicateCount = 0;
     let totalNewCreditTemp = 0;
 
-    // ตรวจจับเลขบัญชี ISBT จากข้อความทั้งหมด (ใช้เลขแรกที่เจอ)
-    const accMatch = text.match(/ISBT-\d{6}/);
-    if (accMatch) accountNumber = accMatch[0];
+    // ตรวจจับเลขบัญชี ISBT (ยืดหยุ่นกว่าเดิม - ใช้เลขแรกที่เจอ)
+    const accMatch = text.match(/ISBT-\d{6}/i); // i = case-insensitive
+    if (accMatch) {
+        accountNumber = accMatch[0];
+        console.log('พบเลขบัญชี ISBT:', accountNumber); // debug
+    } else {
+        console.log('ไม่พบเลข ISBT ในข้อมูล');
+    }
 
     lines.forEach(line => {
         const parts = line.split(/\s+/).filter(p => p);
@@ -255,6 +263,10 @@ function finishProcess(duplicateCount = 0, totalCredit = 0) {
     </div>`;
 
     showToast(`ประมวลผลสำเร็จ ${allRows.length} รายการ`);
+
+    // ปลดล็อคปุ่มกลับไปเป็นปกติ
+    btnProcess.disabled = false;
+    btnProcess.textContent = 'ประมวลผลข้อความที่วาง';
 
     setTimeout(() => {
         resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -378,7 +390,7 @@ function changePage(page) {
     renderTable(page);
 }
 
-// Download CSV
+// Download CSV - ใช้ accountNumber ที่จับได้
 function downloadCSV() {
     const rowsToExport = allRows.filter(r => r.selected);
     if (!rowsToExport.length) return showToast('ไม่มีรายการที่เลือก');
@@ -402,7 +414,7 @@ function downloadCSV() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${accountNumber}-${currentDateStr}.csv`;
+    a.download = `${accountNumber}-${currentDateStr}.csv`; // ← ใช้ accountNumber ที่จับได้
     a.click();
     URL.revokeObjectURL(url);
     a.remove();
