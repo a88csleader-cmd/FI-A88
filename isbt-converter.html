@@ -117,6 +117,7 @@ let selectedRows = [];
 let currentPage = 1;
 const rowsPerPage = 100;
 let currentDateStr = '';
+let accountNumber = 'UNKNOWN'; // เก็บเลขบัญชี ISBT ที่พบ
 let renderTimeout;
 
 // Elements
@@ -175,16 +176,40 @@ function processPastedText() {
     let duplicateCount = 0;
     let totalNewCreditTemp = 0;
 
+    // ตรวจจับเลขบัญชี ISBT จากข้อความทั้งหมด (ใช้เลขแรกที่เจอ)
+    const accMatch = text.match(/ISBT-\d{6}/);
+    if (accMatch) accountNumber = accMatch[0];
+
     lines.forEach(line => {
-        // Robust regex parsing
-        const match = line.match(/(\S+)\s+(VIP[A-Z]+)\s+(\d{13})\s+(ISBT-\d+)\s+(THB)\s+([\d,]+\.\d{2})\s+(mBanking|cBanking|ATM)\s+([A-Z]{3,5})\s+(.+?)\s+(\d{10,12})\s+(\d{2}-[A-Za-z]{3}-\d{4}\s+\d{2}:\d{2}:\d{2}\s+(?:AM|PM))/);
-        if (!match) return;
+        const parts = line.split(/\s+/).filter(p => p);
+        if (parts.length < 12) return;
 
-        const [, memberCode, risk, txnId, acc, currency, amountStr, channel, bank, name, accountNo, transferDateRaw] = match;
+        let idx = 0;
+        idx += 3;
+        const acc = parts[idx];
+        if (!acc || !acc.startsWith('ISBT-')) return;
+        idx++;
 
-        const amount = parseFloat(amountStr.replace(/,/g,'')) || 0;
+        if (parts[idx++] !== 'THB') return;
+
+        const amountStr = parts[idx++].replace(/,/g,'');
+        const amount = parseFloat(amountStr) || 0;
+
+        const channel = parts[idx++];
+        if (!['mBanking','cBanking','ATM'].includes(channel)) return;
+        const bank = parts[idx++] || '';
+
+        let nameParts = [];
+        while (idx < parts.length && !/^\d{10,12}$/.test(parts[idx])) {
+            nameParts.push(parts[idx++]);
+        }
+        const accountName = nameParts.join(' ').trim();
+
+        const accountNo = parts[idx++] || '';
+
+        const transferDateRaw = `${parts[idx++] || ''} ${parts[idx++] || ''} ${parts[idx++] || ''} ${parts[idx++] || ''}`.trim();
+
         const key = `${accountNo}|${amount}|${transferDateRaw}`;
-
         if (seen.has(key)) {
             duplicateCount++;
             return;
@@ -195,7 +220,7 @@ function processPastedText() {
         allRows.push({
             no: allRows.length + 1,
             amount,
-            accountName: name.trim(),
+            accountName,
             accountNo,
             transferDate: formatDate(transferDateRaw),
             selected: true
@@ -212,9 +237,6 @@ function processPastedText() {
     selectedRows = [...allRows];
 
     finishProcess(duplicateCount, totalNewCreditTemp);
-
-    btnProcess.disabled = false;
-    btnProcess.textContent = 'ประมวลผลข้อความที่วาง';
 }
 
 // Common finish
@@ -251,7 +273,6 @@ function updateSummary() {
     const finalBalance = (parseFloat(lastBalanceEl.value) || 0) + selectedTotal;
     newBalanceEl.textContent = finalBalance.toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2});
 
-    // Enable/disable download button
     btnDownload.disabled = selectedCount === 0;
 }
 
@@ -287,7 +308,6 @@ function renderTable(page = 1) {
     html += `</tbody></table>`;
     previewEl.innerHTML = html;
 
-    // Add event listeners to checkboxes
     document.querySelectorAll('.row-checkbox').forEach(cb => {
         cb.addEventListener('change', (e) => {
             e.stopPropagation();
@@ -382,7 +402,7 @@ function downloadCSV() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ISBT-Selected-${currentDateStr}.csv`;
+    a.download = `${accountNumber}-${currentDateStr}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     a.remove();
