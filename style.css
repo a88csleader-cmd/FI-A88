@@ -17,43 +17,51 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 16px;
-  background: white;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+  color: white;
   position: sticky;
   top: 0;
   z-index: 900;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  box-shadow: 0 4px 12px rgba(30, 64, 175, 0.15);
 }
 
 .header-left h1 {
-  font-size: 1.45rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  color: #1e40af;
+  color: white;
+  letter-spacing: -0.5px;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .user-info {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   font-weight: 500;
-  color: #334155;
-  background: #eff6ff;
-  padding: 5px 10px;
-  border-radius: 9999px;
+  color: #dbeafe;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 7px 14px;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
 }
 
 .hamburger {
   font-size: 1.65rem;
-  background: none;
+  background: rgba(255, 255, 255, 0.2);
   border: none;
   cursor: pointer;
-  color: #1e40af;
-  padding: 4px;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.hamburger:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* ── Side Panel (Admin Menu) ──────────────────────────────── */
@@ -61,12 +69,12 @@ header {
 .side-panel {
   position: fixed;
   top: 0;
-  right: -340px;                /* กว้างขึ้นนิดหน่อยให้สบายตา */
+  right: -340px;
   width: 340px;
   height: 100%;
   background: white;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.18);
-  transition: right 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+  transition: right 0.3s ease-out;
   z-index: 1100;
   display: flex;
   flex-direction: column;
@@ -103,7 +111,7 @@ header {
   padding: 4px 8px;
   line-height: 1;
   border-radius: 8px;
-  transition: background 0.2s;
+  transition: background 0.15s ease;
 }
 
 #menu-close:hover {
@@ -146,13 +154,13 @@ header {
   color: #1e293b;
   text-decoration: none;
   font-weight: 500;
-  transition: all 0.18s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .menu-link:hover {
   background: #f1f5f9;
   color: #1e40af;
-  padding-left: 28px;           /* เล็กน้อยให้รู้สึก indent เมื่อ hover */
+  padding-left: 28px;
 }
 
 .logout {
@@ -203,14 +211,14 @@ header {
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: rgba(0,0,0,0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1200;
   opacity: 0;
   visibility: hidden;
-  transition: all 0.3s ease;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
 }
 
 .modal.open {
@@ -224,7 +232,7 @@ header {
   border-radius: 14px;
   width: 90%;
   max-width: 400px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
   position: relative;
 }
 
@@ -284,116 +292,122 @@ header {
 /* Main Content */
 main#groups-container {
   padding: 16px;
-  max-width: 1480px;
+  max-width: 1400px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 70px);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Table Header */
 .table-header {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  background: #1e40af;
-  color: white;
-  font-weight: 600;
-  border-radius: 10px 10px 0 0;
-  margin: 0 0 6px 0;
-  position: sticky;
-  top: 56px;                    /* ปรับตามความสูง header จริง */
-  z-index: 8;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-.table-header .group-name {
-  color: white;
-  background: none;
-  box-shadow: none;
-  text-align: right;
-  font-size: 1.05rem;
-}
-
-.table-header .accounts-list {
-  color: white;
-  font-size: 1.05rem;
-  padding-left: 16px;
+  display: none;
 }
 
 /* Group Row */
 .group-row {
-  display: flex;
-  align-items: flex-start;
-  min-height: 52px;
-  padding: 10px 16px;
-  margin-bottom: 6px;
-  border-radius: 10px;
-  gap: 16px;
-  background: #f9fafb;
-  transition: background 0.2s ease;
-}
-
-.group-row:hover {
-  background: #e0f2fe;
+  margin-bottom: 0;
+  border: none;
 }
 
 .group-name {
   position: sticky;
-  left: 0;
-  width: 160px;
-  min-width: 160px;
-  max-width: 160px;
-  padding: 8px 12px;
-  font-weight: 600;
-  font-size: 1.02rem;
-  color: #1e40af;
-  background: inherit;
-  z-index: 5;
-  border-radius: 8px;
-  flex-shrink: 0;
-  text-align: right;
-  box-shadow: 2px 0 6px rgba(0,0,0,0.03);
+  top: 0;
+  padding: 10px 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: white;
+  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+  border-radius: 6px;
+  text-align: left;
+  box-shadow: 0 1px 4px rgba(30, 64, 175, 0.15);
+  z-index: 10;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-size: 0.8rem;
 }
 
 .accounts-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  flex: 1;
-  padding-top: 4px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 2px 12px 2px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  margin-top: 0;
 }
 
 .account-item {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 1.5fr 1fr;
   align-items: center;
-  padding: 7px 13px;
+  gap: 12px;
+  padding: 10px 12px;
   background: white;
   color: #1e293b;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 0.93rem;
+  border-left: 3px solid #60a5fa;
+  border-radius: 6px;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.16s ease;
-  white-space: nowrap;
+  transition: all 0.15s ease;
+  position: relative;
+  overflow: hidden;
+  min-height: 40px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.account-item::before {
+  display: none;
 }
 
 .account-item:hover {
-  background: #dbeafe;
-  border-color: #60a5fa;
-  transform: translateY(-1px);
+  background: #f0f9ff;
+  border-color: #3b82f6;
+  border-left-color: #1e40af;
+  box-shadow: 0 2px 8px rgba(60, 130, 246, 0.15);
+  transform: none;
 }
 
 .account-item.copied {
-  background: #d1fae5;
-  border-color: #34d399;
-  color: #065f46;
+  background: #f0fdf4;
+  border-color: #22c55e;
+  border-left-color: #16a34a;
+  color: #15803d;
 }
 
 /* Loading & Toast */
 .loading {
   text-align: center;
-  padding: 100px 20px;
+  padding: 80px 20px;
   color: #64748b;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 300px;
+}
+
+.loading::before {
+  content: '';
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #1e40af;
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+
+@keyframes spinner {
+  to { transform: rotate(360deg); }
 }
 
 .loading.hidden { display: none; }
@@ -402,16 +416,16 @@ main#groups-container {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background: #10b981;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
-  padding: 12px 24px;
+  padding: 14px 24px;
   border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(16,185,129,0.28);
-  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  font-weight: 600;
   z-index: 2000;
   opacity: 0;
-  transform: translateY(16px);
-  transition: all 0.35s ease;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 /* ── Responsive ──────────────────────────────────── */
@@ -570,40 +584,35 @@ main#groups-container {
   margin-top: 16px;
   min-height: 1.3em;
 }
-.loading {
-  margin-top: 20px;
+
+
+
+
+/* Account Item Columns - Append this to style.css */
+.account-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-bank {
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.col-name {
   color: #64748b;
-  font-size: 1rem;
+  font-size: 0.8em;
 }
 
-/* ── Toast (ใช้ร่วมกับหน้า login และ index) ─────────────── */
-.toast {
-  position: fixed;
-  bottom: 32px;
-  right: 32px;
-  background: #10b981;
-  color: white;
-  padding: 14px 28px;
-  border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(16,185,129,0.3);
+.col-accname {
+  color: #1e293b;
   font-weight: 500;
-  z-index: 2000;
-  opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.4s ease;
 }
 
-/* ── Loading Spinner (ปรับให้สวยขึ้น) ────────────────────── */
-.loading.hidden { display: none; }
-.loading::after {
-  content: "";
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  margin-left: 10px;
-  border: 3px solid #64748b;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+.col-accno {
+  color: #0f172a;
+  font-weight: 600;
+  font-family: monospace;
+  letter-spacing: 0.5px;
 }
-@keyframes spin { to { transform: rotate(360deg); } }

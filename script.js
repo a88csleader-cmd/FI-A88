@@ -1,10 +1,14 @@
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzzKu6OY5VcxNWwx7UXAR5FPfHEbWM5TO2PnQxdhQiNUwwwLTMu3-ll9Lmh5dnpep4tfw/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzt79HkmSmFkd7e6W8IVAjTPBZH0QDQ8kU_7eTdLijzL5NUtmxewIGV_oU_Kn6VVPoabw/exec';
 const SECRET_KEY = 'sAuTaaxokJAPUbbqe7UtKy';
+const CHECK_INTERVAL = 60000; // เพิ่มเป็น 60 วิที่แทน 20 วิที่
 
 let token = localStorage.getItem("token");
+
 let isAdmin = false;
 let lastUpdate = null;
 let lastAccountsJSON = null;
+let checkUpdateTimeout = null;
+let cachedDOMElements = {};
 
 if (!token) {
   location.href = "login.html";
@@ -17,6 +21,7 @@ const bankColors = {
   KTB: "#1d4ed8",
   TMB: "#7c3aed",
   BAY: "#dc2626",
+  ISBT: "#7c3aed",
   default: "#1e40af"
 };
 
@@ -69,8 +74,8 @@ function showToast(msg) {
   toast.className = "toast";
   toast.textContent = msg;
   document.body.appendChild(toast);
-  setTimeout(() => { toast.style.opacity = 1; toast.style.transform = 'translateY(0)'; }, 50);
-  setTimeout(() => { toast.style.opacity = 0; }, 2200);
+  setTimeout(() => { toast.style.opacity = 1; toast.style.transform = 'translateY(0)'; }, 10);
+  setTimeout(() => { toast.style.opacity = 0; toast.style.transform = 'translateY(20px)'; }, 2500);
   setTimeout(() => { toast.remove(); }, 2800);
 }
 
@@ -78,31 +83,57 @@ function loadData() {
   return new Promise((resolve, reject) => {
     const cb = 'gas_' + Date.now();
     const s = document.createElement("script");
-    s.src = `${APPS_SCRIPT_URL}?secret=${SECRET_KEY}&callback=${cb}`;
-    window[cb] = (res) => {
+    const url = `${APPS_SCRIPT_URL}?secret=${SECRET_KEY}&callback=${cb}`;
+    s.src = url;
+    
+    const timeout = setTimeout(() => {
       delete window[cb];
       s.remove();
+      reject(new Error('Request timeout'));
+    }, 10000);
+    
+    window[cb] = (res) => {
+      clearTimeout(timeout);
+      delete window[cb];
+      s.remove();
+      
       if (!res?.data) {
         reject(new Error('No data'));
         return;
       }
+      
       const accounts = res.data.map(a => ({
         ...a,
         short: (a.short || '').trim() || `${a.bank}-${a.no.toString().slice(-5)}`
       }));
       resolve(accounts);
     };
-    s.onerror = reject;
+    
+    s.onerror = (error) => {
+      clearTimeout(timeout);
+      delete window[cb];
+      reject(error);
+    };
+    
     document.body.appendChild(s);
   });
 }
 
 function checkUpdate() {
-  fetch(`${APPS_SCRIPT_URL}?secret=${SECRET_KEY}&mode=check`)
-    .then(r => r.json())
+  const url = `${APPS_SCRIPT_URL}?secret=${SECRET_KEY}&mode=check`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  
+  fetch(url, { signal: controller.signal })
+    .then(r => {
+      clearTimeout(timeoutId);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
     .then(data => {
       if (data.updated !== lastUpdate) {
         lastUpdate = data.updated;
+        
         loadData()
           .then(accounts => {
             const json = JSON.stringify(accounts);
@@ -113,16 +144,19 @@ function checkUpdate() {
             }
             hideLoading();
           })
-          .catch(() => {
-            showToast("โหลดข้อมูลล้มเหลว");
+          .catch((err) => {
+            showToast("โหลดข้อมูลล้มเหลว: " + err.message);
             hideLoading();
           });
       } else {
         hideLoading();
       }
     })
-    .catch(() => {
-      showToast("ตรวจสอบอัพเดทไม่ได้");
+    .catch((err) => {
+      clearTimeout(timeoutId);
+      if (err.name !== 'AbortError') {
+        showToast("ตรวจสอบอัพเดทไม่ได้: " + err.message);
+      }
       hideLoading();
     });
 }
@@ -142,8 +176,13 @@ function renderGroups(accounts) {
   // ลบเฉพาะกลุ่มเก่า (เก็บ header ไว้)
   document.querySelectorAll('.group-row').forEach(el => el.remove());
 
+  const fragment = document.createDocumentFragment();
+  // Pre-sort accounts เพียงครั้งเดียว
+  const sortedAccounts = sortAccounts(accounts);
+
   paymentGroups.forEach(g => {
-    const matches = sortAccounts(accounts.filter(a => a.groups.includes(g.key)));
+    // Filter จาก sorted accounts แล้ว
+    const matches = sortedAccounts.filter(a => a.groups.includes(g.key));
     if (matches.length === 0) return;
 
     const row = document.createElement("div");
@@ -162,17 +201,38 @@ function renderGroups(accounts) {
       item.className = "account-item";
       item.type = "button";
 
-      const displayText = acc.short;  // หรือจะปรับแสดงชื่อไทยที่นี่ด้วยก็ได้ แต่ส่วนใหญ่คนชอบเห็นตัวย่อบนหน้าเว็บ
+      const bankThai = bankThaiNames[acc.bank] || bankThaiNames.default || acc.bank;
+      const formattedNo = formatAccountNumber(acc.no);
 
-      item.innerHTML = `<span class="acc-text">${displayText}</span>`;
+      item.innerHTML = '<span class="col-bank">' + bankThai + '</span>\n        <span class="col-name">' + acc.short + '</span>\n        <span class="col-accname">' + acc.name + '</span>\n        <span class="col-accno">' + formattedNo + '</span>';
 
-      item.onclick = () => {
-        const bankThai = bankThaiNames[acc.bank] || bankThaiNames.default || acc.bank;
+      item.dataset.bank = acc.bank;
+      item.dataset.name = acc.name;
+      item.dataset.no = acc.no;
 
-        const text = `📌 ช่องทางโอนเงิน
+      accountsContainer.appendChild(item);
+    });
+
+    row.appendChild(accountsContainer);
+    fragment.appendChild(row);
+  });
+
+  container.appendChild(fragment);
+  hideLoading();
+}
+
+// Event delegation สำหรับ account buttons (ที่ groups-container)
+const groupsContainer = document.getElementById("groups-container");
+if (groupsContainer) {
+  groupsContainer.addEventListener("click", (e) => {
+    const item = e.target.closest(".account-item");
+    if (item) {
+      const bankThai = bankThaiNames[item.dataset.bank] || bankThaiNames.default || item.dataset.bank;
+
+      const text = `📌 ช่องทางโอนเงิน
 ธนาคาร : ${bankThai}
-ชื่อบัญชี : ${acc.name}
-เลขบัญชี : ${formatAccountNumber(acc.no)}
+ชื่อบัญชี : ${item.dataset.name}
+เลขบัญชี : ${formatAccountNumber(item.dataset.no)}
 
 ━━━━━━━━━━━━━━━━
 
@@ -184,22 +244,14 @@ function renderGroups(accounts) {
 
 หากโอนแล้ว กรุณาส่งสลิปเพื่อทำรายการค่ะ 🙏`;
 
-        navigator.clipboard.writeText(text).then(() => {
-          showToast("คัดลอกแล้ว ✓");
-        });
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("คัดลอกแล้ว ✓");
+      });
 
-        item.classList.add("copied");
-        setTimeout(() => item.classList.remove("copied"), 1400);
-      };
-
-      accountsContainer.appendChild(item);
-    });
-
-    row.appendChild(accountsContainer);
-    container.appendChild(row);
+      item.classList.add("copied");
+      setTimeout(() => item.classList.remove("copied"), 1400);
+    }
   });
-
-  hideLoading();
 }
 
 function hideLoading() {
@@ -208,11 +260,27 @@ function hideLoading() {
 }
 
 // เริ่มต้น + event listeners (ส่วนเมนู, modal, logout, เปลี่ยนรหัสผ่าน)
-document.addEventListener("DOMContentLoaded", () => {
+function initializeApp() {
   const menuBtn = document.getElementById("menu-btn");
   const panel = document.getElementById("admin-panel");
   const overlay = document.getElementById("menu-overlay");
   const closeBtn = document.getElementById("menu-close");
+
+  // Cache DOM elements
+  cachedDOMElements = {
+    userInfo: document.getElementById("user-info"),
+    usernameDisplay: document.getElementById("my-username-display"),
+    adminSection: document.getElementById("admin-only-section"),
+    logoutLink: document.getElementById("logout-link"),
+    changePasswordLink: document.getElementById("change-password-link"),
+    modal: document.getElementById("change-password-modal"),
+    closeModal: document.getElementById("close-password-modal"),
+    submitBtn: document.getElementById("submit-password-change"),
+    errorEl: document.getElementById("password-error"),
+    oldPasswordInput: document.getElementById("old-password"),
+    newPasswordInput: document.getElementById("new-password"),
+    confirmPasswordInput: document.getElementById("confirm-password")
+  };
 
   const openPanel = () => {
     panel.classList.add("open");
@@ -227,7 +295,7 @@ document.addEventListener("DOMContentLoaded", () => {
   closeBtn?.addEventListener("click", closePanel);
   overlay?.addEventListener("click", closePanel);
 
-  document.getElementById("logout-link")?.addEventListener("click", e => {
+  cachedDOMElements.logoutLink?.addEventListener("click", e => {
     e.preventDefault();
     localStorage.removeItem("token");
     showToast("ออกจากระบบแล้ว");
@@ -239,73 +307,78 @@ document.addEventListener("DOMContentLoaded", () => {
     .then(data => {
       if (data.valid) {
         const username = data.username || '—';
-        document.getElementById("user-info").textContent = `User : ${username}`;
-        document.getElementById("my-username-display").textContent = username;
+        cachedDOMElements.userInfo.textContent = `User : ${username}`;
+        cachedDOMElements.usernameDisplay.textContent = username;
 
         isAdmin = data.role === 'admin' || data.isAdmin === true;
         if (isAdmin) {
-          document.getElementById("admin-only-section").style.display = "block";
+          cachedDOMElements.adminSection.style.display = "block";
         }
 
-        checkUpdate();
-        setInterval(checkUpdate, 20000);
+        // โหลดข้อมูลทันทีหลัง login สำเร็จ
+        loadData()
+          .then(accounts => {
+            renderGroups(accounts);
+            lastAccountsJSON = JSON.stringify(accounts);
+          })
+          .catch((err) => {
+            showToast("โหลดข้อมูลล้มเหลว: " + err.message);
+            hideLoading();
+          });
+
+        // ตั้งค่าให้ตรวจสอบอัพเดทเป็นระยะ
+        checkUpdateTimeout = setInterval(checkUpdate, CHECK_INTERVAL);
       } else {
         localStorage.removeItem("token");
         location.href = "login.html";
       }
     })
-    .catch(() => {
+    .catch((err) => {
       localStorage.removeItem("token");
       location.href = "login.html";
     });
 
   // Modal เปลี่ยนรหัสผ่าน
-  const changeLink = document.getElementById("change-password-link");
-  const modal = document.getElementById("change-password-modal");
-  const closeModal = document.getElementById("close-password-modal");
-  const submitBtn = document.getElementById("submit-password-change");
-  const errorEl = document.getElementById("password-error");
-
-  changeLink?.addEventListener("click", e => {
+  cachedDOMElements.changePasswordLink?.addEventListener("click", e => {
     e.preventDefault();
-    modal.style.display = "flex";
-    setTimeout(() => modal.classList.add("open"), 10);
-    errorEl.textContent = "";
+    cachedDOMElements.modal.style.display = "flex";
+    setTimeout(() => cachedDOMElements.modal.classList.add("open"), 10);
+    cachedDOMElements.errorEl.textContent = "";
   });
 
-  closeModal?.addEventListener("click", () => {
-    modal.classList.remove("open");
-    setTimeout(() => { modal.style.display = "none"; }, 300);
+  cachedDOMElements.closeModal?.addEventListener("click", () => {
+    cachedDOMElements.modal.classList.remove("open");
+    setTimeout(() => { cachedDOMElements.modal.style.display = "none"; }, 300);
   });
 
-  modal?.addEventListener("click", e => {
-    if (e.target === modal) {
-      modal.classList.remove("open");
-      setTimeout(() => { modal.style.display = "none"; }, 300);
+  cachedDOMElements.modal?.addEventListener("click", e => {
+    if (e.target === cachedDOMElements.modal) {
+      cachedDOMElements.modal.classList.remove("open");
+      setTimeout(() => { cachedDOMElements.modal.style.display = "none"; }, 300);
     }
   });
 
-  submitBtn?.addEventListener("click", async () => {
-    const oldPass = document.getElementById("old-password").value.trim();
-    const newPass = document.getElementById("new-password").value.trim();
-    const confirm = document.getElementById("confirm-password").value.trim();
+  cachedDOMElements.submitBtn?.addEventListener("click", async () => {
+    const oldPass = cachedDOMElements.oldPasswordInput.value.trim();
+    const newPass = cachedDOMElements.newPasswordInput.value.trim();
+    const confirm = cachedDOMElements.confirmPasswordInput.value.trim();
 
-    errorEl.textContent = "";
+    cachedDOMElements.errorEl.textContent = "";
     if (!oldPass || !newPass || !confirm) {
-      errorEl.textContent = "กรุณากรอกครบทุกช่อง";
+      cachedDOMElements.errorEl.textContent = "กรุณากรอกครบทุกช่อง";
       return;
     }
     if (newPass !== confirm) {
-      errorEl.textContent = "รหัสผ่านใหม่ไม่ตรงกัน";
+      cachedDOMElements.errorEl.textContent = "รหัสผ่านใหม่ไม่ตรงกัน";
       return;
     }
     if (newPass.length < 6) {
-      errorEl.textContent = "รหัสผ่านใหม่ต้องอย่างน้อย 6 ตัวอักษร";
+      cachedDOMElements.errorEl.textContent = "รหัสผ่านใหม่ต้องอย่างน้อย 6 ตัวอักษร";
       return;
     }
 
-    submitBtn.disabled = true;
-    errorEl.textContent = "กำลังดำเนินการ...";
+    cachedDOMElements.submitBtn.disabled = true;
+    cachedDOMElements.errorEl.textContent = "กำลังดำเนินการ...";
 
     try {
       const params = new URLSearchParams({
@@ -319,26 +392,41 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
 
       if (data.success) {
-        errorEl.style.color = "#10b981";
-        errorEl.textContent = "เปลี่ยนรหัสผ่านสำเร็จ!";
+        cachedDOMElements.errorEl.style.color = "#10b981";
+        cachedDOMElements.errorEl.textContent = "เปลี่ยนรหัสผ่านสำเร็จ!";
         setTimeout(() => {
-          modal.classList.remove("open");
+          cachedDOMElements.modal.classList.remove("open");
           setTimeout(() => {
-            modal.style.display = "none";
-            document.getElementById("old-password").value = "";
-            document.getElementById("new-password").value = "";
-            document.getElementById("confirm-password").value = "";
-            errorEl.textContent = "";
-            errorEl.style.color = "#ef4444";
+            cachedDOMElements.modal.style.display = "none";
+            cachedDOMElements.oldPasswordInput.value = "";
+            cachedDOMElements.newPasswordInput.value = "";
+            cachedDOMElements.confirmPasswordInput.value = "";
+            cachedDOMElements.errorEl.textContent = "";
+            cachedDOMElements.errorEl.style.color = "#ef4444";
           }, 300);
         }, 1400);
       } else {
-        errorEl.textContent = data.message || "เกิดข้อผิดพลาด";
+        cachedDOMElements.errorEl.textContent = data.message || "เกิดข้อผิดพลาด";
       }
     } catch {
-      errorEl.textContent = "ไม่สามารถเชื่อมต่อได้";
+      cachedDOMElements.errorEl.textContent = "ไม่สามารถเชื่อมต่อได้";
     } finally {
-      submitBtn.disabled = false;
+      cachedDOMElements.submitBtn.disabled = false;
     }
   });
-});
+
+  // Cleanup on page unload
+  window.addEventListener("beforeunload", () => {
+    if (checkUpdateTimeout) clearInterval(checkUpdateTimeout);
+  });
+}
+
+// ========================================
+// Call initializeApp at the right time
+// ========================================
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+  // Use setTimeout to ensure all scripts are loaded
+  setTimeout(initializeApp, 100);
+}

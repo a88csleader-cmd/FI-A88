@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const errorEl = document.getElementById('error');
 
   // แก้ URL นี้ให้ตรงกับ deployment ของคุณจริง ๆ
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzzKu6OY5VcxNWwx7UXAR5FPfHEbWM5TO2PnQxdhQiNUwwwLTMu3-ll9Lmh5dnpep4tfw/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzt79HkmSmFkd7e6W8IVAjTPBZH0QDQ8kU_7eTdLijzL5NUtmxewIGV_oU_Kn6VVPoabw/exec';
 
   loginBtn.addEventListener('click', async () => {
     const username = usernameInput.value.trim();
