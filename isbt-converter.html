@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ISBT / TTB CSV Converter</title>
+    <title>ISBT / TTB / KTB CSV Converter</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -25,9 +25,9 @@
     <div class="max-w-6xl mx-auto px-6 py-10">
         <header class="text-center mb-12">
             <h1 class="text-5xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent inline-block">
-                ISBT / TTB CSV Converter
+                ISBT / TTB / KTB CSV Converter
             </h1>
-            <p class="text-zinc-400 mt-3 text-lg">รองรับ ISBT และ TTB (รูปแบบไฟล์ต่างกัน)</p>
+            <p class="text-zinc-400 mt-3 text-lg">รองรับ ISBT, TTB และ KTB (รูปแบบไฟล์ต่างกัน)</p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
@@ -95,6 +95,7 @@ const rowsPerPage = 100;
 let currentDateStr = '';
 let accountNumber = 'UNKNOWN';
 let isTTB = false;   // ใช้เช็คว่าเป็น TTB หรือไม่
+let isKTB = false;   // ใช้เช็คว่าเป็น KTB หรือไม่
 
 const pasteTextEl = document.getElementById('pasteText');
 const lastBalanceEl = document.getElementById('lastBalance');
@@ -147,66 +148,30 @@ function processPastedText() {
         let totalNewCreditTemp = 0;
 
         // ตรวจจับประเภทบัญชี
-        const accMatch = text.match(/(ISBT|TTB)-\d{5,6}/i);
+        let accMatch = text.match(/(ISBT|TTB|KTB)-\d+/i);
         if (accMatch) {
             accountNumber = accMatch[0];
             isTTB = accountNumber.startsWith('TTB');
-            console.log('พบบัญชี:', accountNumber, 'เป็น TTB:', isTTB);
+            isKTB = accountNumber.startsWith('KTB');
+            console.log('พบบัญชี:', accountNumber, 'เป็น TTB:', isTTB, 'เป็น KTB:', isKTB);
         }
 
-        lines.forEach(line => {
-            const parts = line.split(/\s+/).filter(p => p);
-            if (parts.length < 12) return;
-
-            let idx = 0;
-            idx += 3; // ข้าม Member, Risk, TxnId
-
-            const acc = parts[idx];
-            if (!acc || !/(ISBT|TTB)-[\d-]{5,20}/i.test(acc)) return;
-            idx++;
-
-            if ((parts[idx++] || '').toUpperCase() !== 'THB') return;
-
-            const amountStr = (parts[idx++] || '').replace(/,/g, '');
-            const amount = parseFloat(amountStr) || 0;
-
-            const channel = parts[idx++] || '';
-            const validChannels = ['mBanking', 'cBanking', 'ATM', 'Ebanking', 'Branch', 'Online', 'Mobile', 'Internet'];
-            if (!validChannels.includes(channel)) {
-                console.warn('ช่องทางไม่รองรับ:', channel, 'ในบรรทัด', line);
-                return;
+        // ตรวจหาว่า KTB หรือ ISBT/TTB จากรูปแบบข้อมูล
+        if (!isKTB && !isTTB && lines.length > 0) {
+            if (/mBanking|cBanking/.test(lines[0]) && /KTB|KBANK|BBL|SCB|BAY|TMB|UOB|CIMB|GSB/.test(lines[0])) {
+                isKTB = true;
+                accountNumber = 'KTB-00000';
+                console.log('ตรวจพบรูปแบบ KTB/KBANK');
             }
-            const bank = (parts[idx++] || '').toUpperCase();
-            let nameParts = [];
-            while (idx < parts.length && !/^[-\d]{8,20}$/.test(parts[idx])) {
-                nameParts.push(parts[idx++]);
-            }
-            const accountName = nameParts.join(' ').trim();
+        }
 
-            const accountNo = (parts[idx++] || '').replace(/[\s-]+/g, '');
-
-            const dateTokens = parts.slice(idx, idx + 4);
-            const transferDateRaw = dateTokens.join(' ').trim();
-            idx += dateTokens.length;
-
-            const key = `${accountNo}|${amount}|${transferDateRaw}`;
-            if (seen.has(key)) {
-                duplicateCount++;
-                return;
-            }
-            seen.add(key);
-
-            totalNewCreditTemp += amount;
-            allRows.push({
-                no: allRows.length + 1,
-                amount,
-                accountName,
-                accountNo,
-                bank,
-                transferDate: formatDate(transferDateRaw),
-                selected: true
-            });
-        });
+        if (isKTB) {
+            // Parse KTB format
+            parseKTBFormat(lines, allRows, seen, duplicateCount, totalNewCreditTemp);
+        } else {
+            // Parse ISBT/TTB format
+            parseISBTTTBFormat(lines, allRows, seen, duplicateCount, totalNewCreditTemp);
+        }
 
         if (allRows.length === 0) {
             statusEl.innerHTML = `<div class="text-red-400 text-xl">❌ ไม่สามารถแยกข้อมูลได้</div>`;
@@ -221,6 +186,161 @@ function processPastedText() {
         btnProcess.disabled = false;
         btnProcess.textContent = 'ประมวลผลข้อความที่วาง';
     }
+}
+
+function parseKTBFormat(lines, allRows, seen, duplicateCount, totalNewCreditTemp) {
+    lines.forEach(line => {
+        const parts = line.split(/\s+/).filter(p => p);
+        if (parts.length < 14) return;
+
+        let idx = 0;
+        
+        // Member ID
+        idx++; // skip
+        // Member Type  
+        idx++; // skip
+        // Transaction ID
+        idx++; // skip
+        // Account/Branch
+        idx++; // skip
+        
+        // Currency
+        if ((parts[idx++] || '').toUpperCase() !== 'THB') return;
+        
+        // Amount
+        const amountStr = (parts[idx++] || '').replace(/,/g, '');
+        const amount = parseFloat(amountStr) || 0;
+        if (amount === 0) return;
+        
+        // Channel
+        const channel = parts[idx++] || '';
+        
+        // Bank
+        const bank = (parts[idx++] || '').toUpperCase();
+        
+        // Account Name (can be multiple words until we find phone or date)
+        let nameParts = [];
+        while (idx < parts.length && !/^\d{8,10}$/.test(parts[idx]) && !/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(parts[idx])) {
+            nameParts.push(parts[idx++]);
+        }
+        
+        const accountName = nameParts.join(' ').trim();
+        
+        // Phone Number (optional)
+        let phoneNumber = '';
+        if (idx < parts.length && /^\d{8,10}$/.test(parts[idx])) {
+            phoneNumber = parts[idx++];
+        }
+        
+        // Date parsing: look for DD-MMM-YYYY
+        let transferDate = '';
+        while (idx < parts.length) {
+            if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(parts[idx])) {
+                // Found date, now collect date and time
+                const datePart = parts[idx++];
+                const timePart = parts[idx] ? parts[idx++] : '';
+                const ampmPart = parts[idx] ? parts[idx++] : '';
+                
+                // Skip end date and time
+                if (idx < parts.length && /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(parts[idx])) {
+                    idx++; // end date
+                }
+                if (idx < parts.length && /^\d{1,2}:\d{2}:\d{2}$/.test(parts[idx])) {
+                    idx++; // end time
+                }
+                if (idx < parts.length && /^(AM|PM)$/i.test(parts[idx])) {
+                    idx++; // end AM/PM
+                }
+                
+                // Status check
+                if (idx < parts.length && (parts[idx++] || '').toUpperCase() !== 'SUCCESSFUL') return;
+                
+                transferDate = formatDate(datePart + ' ' + timePart + ' ' + ampmPart);
+                break;
+            }
+            idx++;
+        }
+        
+        if (!transferDate) return;
+        
+        // Combine bank code with phone number for account number
+        const accountNo = phoneNumber ? `${bank}${phoneNumber}` : `${bank}Unknown`;
+        
+        const key = `${accountNo}|${amount}|${transferDate}`;
+        
+        if (seen.has(key)) {
+            duplicateCount++;
+            return;
+        }
+        seen.add(key);
+
+        totalNewCreditTemp += amount;
+        allRows.push({
+            no: allRows.length + 1,
+            amount,
+            accountName,
+            accountNo: accountNo,
+            bank,
+            transferDate: transferDate,
+            selected: true
+        });
+    });
+}
+
+function parseISBTTTBFormat(lines, allRows, seen, duplicateCount, totalNewCreditTemp) {
+    lines.forEach(line => {
+        const parts = line.split(/\s+/).filter(p => p);
+        if (parts.length < 12) return;
+
+        let idx = 0;
+        idx += 3; // ข้าม Member, Risk, TxnId
+
+        const acc = parts[idx];
+        if (!acc || !/(ISBT|TTB)-[\d-]{5,20}/i.test(acc)) return;
+        idx++;
+
+        if ((parts[idx++] || '').toUpperCase() !== 'THB') return;
+
+        const amountStr = (parts[idx++] || '').replace(/,/g, '');
+        const amount = parseFloat(amountStr) || 0;
+
+        const channel = parts[idx++] || '';
+        const validChannels = ['mBanking', 'cBanking', 'ATM', 'Ebanking', 'Branch', 'Online', 'Mobile', 'Internet'];
+        if (!validChannels.includes(channel)) {
+            console.warn('ช่องทางไม่รองรับ:', channel, 'ในบรรทัด', line);
+            return;
+        }
+        const bank = (parts[idx++] || '').toUpperCase();
+        let nameParts = [];
+        while (idx < parts.length && !/^[-\d]{8,20}$/.test(parts[idx])) {
+            nameParts.push(parts[idx++]);
+        }
+        const accountName = nameParts.join(' ').trim();
+
+        const accountNo = (parts[idx++] || '').replace(/[\s-]+/g, '');
+
+        const dateTokens = parts.slice(idx, idx + 4);
+        const transferDateRaw = dateTokens.join(' ').trim();
+        idx += dateTokens.length;
+
+        const key = `${accountNo}|${amount}|${transferDateRaw}`;
+        if (seen.has(key)) {
+            duplicateCount++;
+            return;
+        }
+        seen.add(key);
+
+        totalNewCreditTemp += amount;
+        allRows.push({
+            no: allRows.length + 1,
+            amount,
+            accountName,
+            accountNo,
+            bank,
+            transferDate: formatDate(transferDateRaw),
+            selected: true
+        });
+    });
 }
 
 function finishProcess(duplicateCount, totalCredit) {
@@ -347,7 +467,21 @@ function downloadCSV() {
 
     let csvContent = '';
 
-    if (isTTB) {
+    if (isKTB) {
+        // Format สำหรับ KTB
+        csvContent = `"${finalBalance.toFixed(2)}"\r\n`;
+        csvContent += `No,Date,Transaction,Description,Cheque No,Amount,Tax,Balance,Branch Code\r\n`;
+
+        let no = 1;
+        let runningBalance = parseFloat(lastBalanceEl.value) || 0;
+        
+        rowsToExport.forEach(r => {
+            runningBalance += r.amount;
+            const ktbDate = formatDateForKTB(r.transferDate);
+            const description = `From account no.: ${r.bank}${r.accountNo.substring(Math.max(0, r.accountNo.length - 4))} From account name: ${r.accountName}`.trim();
+            csvContent += `${no++},${ktbDate},,${csvEscape(description)},,${r.amount.toFixed(2)},,,\r\n`;
+        });
+    } else if (isTTB) {
         // Format สำหรับ TTB
         csvContent = `"${finalBalance.toFixed(2)}"\r\n`;
         csvContent += `No, Date, Details, Bank, Amount, Fee, Balance, Note, Reference\r\n`;
@@ -460,6 +594,22 @@ function formatDateTTB(str) {
     }
 
     return str;
+}
+
+function formatDateForKTB(str) {
+    // Converts formatted date to DD-MMM-YYYY HH:MM format for KTB output
+    if (!str) return '';
+
+    // If already in DD/MM/YYYY HH:MM:SS format
+    const m1 = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+    if (m1) {
+        const [_, dd, mm, yyyy, hh, min] = m1;
+        const monthMap = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthNum = parseInt(mm);
+        return `${dd}-${monthMap[monthNum - 1]}-${yyyy} ${hh}:${min}`;
+    }
+
+    return str.split(' ')[0] || str; // fallback to just date part
 }
 </script>
 </body>

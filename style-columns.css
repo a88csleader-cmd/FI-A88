@@ -1,0 +1,28 @@
+/* Account Item Columns - Append this to style.css */
+.account-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-bank {
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.col-name {
+  color: #64748b;
+  font-size: 0.8em;
+}
+
+.col-accname {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.col-accno {
+  color: #0f172a;
+  font-weight: 600;
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
