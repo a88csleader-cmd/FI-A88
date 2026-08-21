@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzt79HkmSmFkd7e6W8IVAjTPBZH0QDQ8kU_7eTdLijzL5NUtmxewIGV_oU_Kn6VVPoabw/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxtpe345eQlTLcEU6oqpQRccmrvwdemsgWyDRuacPgI684RAS4VHt1IzejOlUSDNNXdCw/exec';
 const SECRET_KEY = 'sAuTaaxokJAPUbbqe7UtKy';
 const CHECK_INTERVAL = 60000; // เพิ่มเป็น 60 วิที่แทน 20 วิที่
 
@@ -84,7 +84,7 @@ function loadData() {
   return new Promise((resolve, reject) => {
     const cb = 'gas_' + Date.now();
     const s = document.createElement("script");
-    const url = `${APPS_SCRIPT_URL}?secret=${SECRET_KEY}&callback=${cb}`;
+    const url = `${APPS_SCRIPT_URL}?secret=${encodeURIComponent(SECRET_KEY)}&callback=${cb}`;
     s.src = url;
 
     const timeout = setTimeout(() => {
@@ -303,8 +303,24 @@ function initializeApp() {
     setTimeout(() => location.href = "login.html", 800);
   });
 
-  fetch(`${APPS_SCRIPT_URL}?action=verify&token=${token}&secret=${SECRET_KEY}`)
-    .then(r => r.json())
+  const verifyParams = new URLSearchParams({
+    action: 'verify',
+    token,
+    secret: SECRET_KEY
+  });
+
+  fetch(`${APPS_SCRIPT_URL}?${verifyParams.toString()}`, { cache: 'no-store' })
+    .then(async response => {
+      const body = await response.text();
+      if (!response.ok) {
+        throw new Error(`ตรวจสอบ session ไม่สำเร็จ (HTTP ${response.status}) จาก ${APPS_SCRIPT_URL}`);
+      }
+      try {
+        return JSON.parse(body);
+      } catch {
+        throw new Error(`เซิร์ฟเวอร์ตอบกลับไม่ใช่ JSON (HTTP ${response.status}) จาก ${APPS_SCRIPT_URL}`);
+      }
+    })
     .then(data => {
       if (data.valid) {
         const username = data.username || '—';
@@ -331,12 +347,14 @@ function initializeApp() {
         checkUpdateTimeout = setInterval(checkUpdate, CHECK_INTERVAL);
       } else {
         localStorage.removeItem("token");
-        location.href = "login.html";
+        const reason = data.message || 'เซสชันหมดอายุหรือ token ไม่ถูกต้อง';
+        location.href = `login.html?reason=${encodeURIComponent(reason)}`;
       }
     })
     .catch((err) => {
-      localStorage.removeItem("token");
-      location.href = "login.html";
+      console.error('Session verification failed:', err);
+      hideLoading();
+      showToast('ตรวจสอบเซสชันไม่ได้ กรุณารีเฟรชหรือตรวจสอบการเชื่อมต่อ');
     });
 
   // Modal เปลี่ยนรหัสผ่าน

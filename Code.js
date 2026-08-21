@@ -6,6 +6,7 @@ const SHEET_ACCOUNTS = 'ALLFundIn';
 const SHEET_USERS = 'USERS';
 const CACHE_TTL_SECONDS = 300; // 5 นาที — ข้อมูลบัญชี
 const SESSION_TTL_SECONDS = 21600; // 6 ชั่วโมง = 6*60*60
+const SESSION_PREFIX = 'session_';
 // ================================
 // ENTRY POINT
 // ================================
@@ -180,8 +181,12 @@ function handleLogin(params) {
     
     if (dbUser === username && dbPass === password && dbStatus === 'active') {
       const token = Utilities.getUuid();
-      const cacheValue = JSON.stringify({ username: dbUser, role: dbRole });
-      CacheService.getScriptCache().put(token, cacheValue, SESSION_TTL_SECONDS);
+      const sessionValue = JSON.stringify({
+        username: dbUser,
+        role: dbRole,
+        expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000
+      });
+      PropertiesService.getScriptProperties().setProperty(SESSION_PREFIX + token, sessionValue);
       
       console.log(`[handleLogin] ✓ Login successful for ${username}`);
       
@@ -202,12 +207,16 @@ function handleVerify(params) {
   if (!token) {
     return json({ valid: false, message: 'token required' });
   }
-  const cached = CacheService.getScriptCache().get(token);
-  if (!cached) {
+  const stored = PropertiesService.getScriptProperties().getProperty(SESSION_PREFIX + token);
+  if (!stored) {
     return json({ valid: false });
   }
   try {
-    const session = JSON.parse(cached);
+    const session = JSON.parse(stored);
+    if (Date.now() > session.expiresAt) {
+      PropertiesService.getScriptProperties().deleteProperty(SESSION_PREFIX + token);
+      return json({ valid: false, message: 'เซสชันหมดอายุ' });
+    }
     return json({
       valid: true,
       username: session.username,
@@ -231,16 +240,16 @@ function handleChangePassword(e) {
   }
   
   // ตรวจสอบ token ก่อน
-  const cache = CacheService.getScriptCache();
-  const cached = cache.get(token);
-  if (!cached) {
+  const properties = PropertiesService.getScriptProperties();
+  const stored = properties.getProperty(SESSION_PREFIX + token);
+  if (!stored) {
     console.warn('[handleChangePassword] Token expired or invalid');
     return json({ success: false, message: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่' });
   }
   
   let userData;
   try {
-    userData = JSON.parse(cached);
+    userData = JSON.parse(stored);
   } catch (err) {
     console.error('[handleChangePassword] Parse error:', err.message);
     return json({ success: false, message: 'ข้อมูลเซสชันไม่ถูกต้อง' });
@@ -273,11 +282,13 @@ function handleChangePassword(e) {
       // อัปเดตรหัสผ่านใหม่
       sheet.getRange(i + 1, 2).setValue(newPassword); // คอลัมน์ B = password
       
-      // อัปเดต cache ใหม่
-      cache.put(
-        token,
-        JSON.stringify({ username: dbUser, role: row[2] || 'user' }),
-        SESSION_TTL_SECONDS
+      properties.setProperty(
+        SESSION_PREFIX + token,
+        JSON.stringify({
+          username: dbUser,
+          role: row[2] || 'user',
+          expiresAt: userData.expiresAt
+        })
       );
       
       console.log(`[handleChangePassword] ✓ Password changed for ${username}`);
@@ -291,7 +302,7 @@ function handleChangePassword(e) {
 function handleLogout(params) {
   const token = (params.token || '').trim();
   if (token) {
-    CacheService.getScriptCache().remove(token);
+    PropertiesService.getScriptProperties().deleteProperty(SESSION_PREFIX + token);
   }
   return json({ success: true });
 }

@@ -1,15 +1,23 @@
 // login.js
 
 document.addEventListener('DOMContentLoaded', () => {
-  const loginBtn = document.querySelector('button');
+  const loginForm = document.getElementById('login-form');
+  const loginBtn = document.getElementById('login-btn');
   const usernameInput = document.getElementById('username');
   const passwordInput = document.getElementById('password');
   const errorEl = document.getElementById('error');
 
-  // แก้ URL นี้ให้ตรงกับ deployment ของคุณจริง ๆ
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzt79HkmSmFkd7e6W8IVAjTPBZH0QDQ8kU_7eTdLijzL5NUtmxewIGV_oU_Kn6VVPoabw/exec';
+  const reason = new URLSearchParams(window.location.search).get('reason');
+  if (reason) {
+    errorEl.textContent = `เข้าสู่ระบบไม่สำเร็จ: ${reason}`;
+  }
 
-  loginBtn.addEventListener('click', async () => {
+  // แก้ URL นี้ให้ตรงกับ deployment ของคุณจริง ๆ
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxtpe345eQlTLcEU6oqpQRccmrvwdemsgWyDRuacPgI684RAS4VHt1IzejOlUSDNNXdCw/exec';
+
+  loginForm.addEventListener('submit', async event => {
+    event.preventDefault();
+
     const username = usernameInput.value.trim();
     const password = passwordInput.value.trim();
 
@@ -35,14 +43,12 @@ document.addEventListener('DOMContentLoaded', () => {
         cache: 'no-cache'
       });
 
+      const text = await response.text();
       if (!response.ok) {
-        const text = await response.text();
         throw new Error(`HTTP ${response.status}: ${text || 'ไม่สามารถเชื่อมต่อได้'}`);
       }
 
       let data;
-      const text = await response.text();
-
       try {
         data = JSON.parse(text);
       } catch (parseErr) {
@@ -74,10 +80,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Enter key support
-  passwordInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      loginBtn.click();
-    }
-  });
 });
